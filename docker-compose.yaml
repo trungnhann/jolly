@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jolly-app:local
+    environment:
+      POSTGRES_URL: postgres://jolly:jolly@postgres:5432/jolly?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: jolly
+      POSTGRES_PASSWORD: jolly
+      POSTGRES_DB: jolly
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jolly -d jolly"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6380:6379"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: jolly
+      MINIO_ROOT_PASSWORD: jolly123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "jolly" "jolly123"; do
+          sleep 1
+        done
+        mc mb -p local/jolly
+
+volumes:
+  postgres-data:
+  minio-data:

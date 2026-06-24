@@ -1,0 +1,46 @@
+meta {
+  name: Create Order
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/orders
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "customer_id": "cust_demo_1",
+    "currency": "USD",
+    "items": [
+      {
+        "sku": "sku_demo_1",
+        "quantity": 2,
+        "unit_price_cents": 1500
+      }
+    ]
+  }
+}
+
+script:post-response {
+  if (res.status === 201 && res.body && res.body.order_uuid) {
+    bru.setVar("order_uuid", res.body.order_uuid);
+  }
+}
+
+tests {
+  test("status code is 201", () => {
+    expect(res.status).to.equal(201);
+  });
+
+  test("returns order_uuid", () => {
+    expect(res.body).to.have.property("order_uuid");
+  });
+}
+

@@ -1,0 +1,179 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Users
+  contact:
+    name: jolly
+paths:
+  /users:
+    post:
+      summary: Create a new user
+      operationId: createUser
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUser"
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /users/{user_uuid}:
+    get:
+      summary: Get a user by UUID
+      operationId: getUser
+      tags:
+        - users
+      parameters:
+        - name: user_uuid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserUUID"
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  schemas:
+    CreateUser:
+      type: object
+      required:
+        - email
+        - name
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    UserCreated:
+      type: object
+      required:
+        - user_uuid
+        - role
+      properties:
+        user_uuid:
+          $ref: "#/components/schemas/UserUUID"
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    User:
+      type: object
+      required:
+        - user_uuid
+        - email
+        - name
+        - role
+        - created_at
+        - updated_at
+      properties:
+        user_uuid:
+          $ref: "#/components/schemas/UserUUID"
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserUUID:
+      type: string
+      format: uuid
+      description: Unique user identifier
+      x-go-type: domain.UserUUID
+      x-go-type-import:
+        path: jolly/backend/users/domain
+
+    UserRole:
+      type: string
+      enum:
+        - customer
+        - admin
+      x-go-type: domain.Role
+      x-go-type-import:
+        path: jolly/backend/users/domain
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+        - slug
+      properties:
+        message:
+          type: string
+        slug:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+
+    ErrorDetail:
+      type: object
+      properties:
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        error_slug:
+          type: string
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

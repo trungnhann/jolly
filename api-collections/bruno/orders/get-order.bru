@@ -1,0 +1,21 @@
+meta {
+  name: Get Order
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/orders/{{order_uuid}}
+  auth: none
+}
+
+tests {
+  test("status code is 200", () => {
+    expect(res.status).to.equal(200);
+  });
+
+  test("returns order_uuid", () => {
+    expect(res.body).to.have.property("order_uuid");
+  });
+}
+

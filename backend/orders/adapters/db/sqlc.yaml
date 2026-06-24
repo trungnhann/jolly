@@ -1,0 +1,55 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "queries"
+    schema: "migrations"
+    gen:
+      go:
+        package: "dbmodels"
+        out: "dbmodels"
+        sql_package: "pgx/v5"
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - db_type: "uuid"
+            nullable: false
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "orders.orders.order_uuid"
+            go_type:
+              import: "jolly/backend/orders/domain"
+              type: "OrderID"
+
+          - column: "orders.orders.currency"
+            go_type:
+              import: "jolly/backend/common/shared"
+              type: "Currency"
+
+          - column: "orders.orders.status"
+            go_type:
+              import: "jolly/backend/orders/domain"
+              type: "Status"
+
+          - column: "orders.order_line_items.order_uuid"
+            go_type:
+              import: "jolly/backend/orders/domain"
+              type: "OrderID"
+
+          - column: "orders.order_line_items.line_item_uuid"
+            go_type:
+              import: "jolly/backend/orders/domain"
+              type: "LineItemUUID"

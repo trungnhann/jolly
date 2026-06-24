@@ -1,0 +1,40 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "queries"
+    schema: "migrations"
+    gen:
+      go:
+        package: "dbmodels"
+        out: "dbmodels"
+        sql_package: "pgx/v5"
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - db_type: "uuid"
+            nullable: false
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "users.users.user_uuid"
+            go_type:
+              import: "jolly/backend/users/domain"
+              type: "UserUUID"
+
+          - column: "users.users.role"
+            go_type:
+              import: "jolly/backend/users/domain"
+              type: "Role"

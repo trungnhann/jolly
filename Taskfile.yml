@@ -1,0 +1,76 @@
+version: "3"
+
+tasks:
+  "mig:new":
+    desc: "Create migration for module. Example: task mig:new MODULE=orders NAME=add_customer_fk"
+    requires:
+      vars: [MODULE, NAME]
+    cmds:
+      - |
+        ts="$(date +%Y%m%d%H%M%S)"
+        dir="backend/{{.MODULE}}/adapters/db/migrations"
+        base="${ts}_{{.NAME}}"
+        mkdir -p "$dir"
+        touch "$dir/${base}.up.sql"
+        echo "Created $dir/${base}.up.sql"
+
+  "mig:new-orders":
+    desc: "Create migration for orders module"
+    requires:
+      vars: [NAME]
+    cmds:
+      - task mig:new MODULE=orders NAME={{.NAME}}
+
+  "mig:new-users":
+    desc: "Create migration for users module"
+    requires:
+      vars: [NAME]
+    cmds:
+      - task mig:new MODULE=users NAME={{.NAME}}
+
+  up:
+    cmds:
+      - docker compose up --build -d
+
+  down:
+    cmds:
+      - docker compose down
+
+  restart:
+    cmds:
+      - task down
+      - task up
+
+  logs:
+    cmds:
+      - docker compose logs -f app
+
+  ps:
+    cmds:
+      - docker compose ps
+
+  run:
+    cmds:
+      - GOWORK=off go run ./backend/cmd
+
+  test:
+    cmds:
+      - GOWORK=off go test ./...
+
+  gen:
+    cmds:
+      - GOWORK=off go generate ./...
+
+  fmt:
+    cmds:
+      - GOWORK=off gofmt -w ./backend
+
+  tidy:
+    cmds:
+      - GOWORK=off go mod tidy
+
+  check:
+    cmds:
+      - task fmt
+      - task tidy
+      - task test
