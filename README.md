@@ -7,26 +7,54 @@ Base scaffold for a Go e-commerce backend following a modular DDD-inspired struc
 - `orders`
 - `payments`
 - `inventory`
+- `users`
 
 ## Run
 
+Recommended local setup (Docker-first):
 ```bash
-go run ./backend/cmd
+task up
+```
+
+Run the Go process directly on the host (requires a DB connection string):
+```bash
+export POSTGRES_URL='postgres://jolly:jolly@localhost:5433/jolly?sslmode=disable'
+task run
 ```
 
 ## Test
 
 ```bash
-go test ./...
+task test
 ```
 
-## Example Request
+## Example Requests
+
+Health check:
+
+```bash
+curl -i http://localhost:8080/health
+```
+
+Create a user:
+
+```bash
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com",
+    "name": "Customer One",
+    "role": "customer"
+  }'
+```
+
+Create an order (use an existing `user_uuid` as `customer_id`):
 
 ```bash
 curl -X POST http://localhost:8080/orders \
   -H "Content-Type: application/json" \
   -d '{
-    "customer_id": "cus_123",
+    "customer_id": "00000000-0000-0000-0000-000000000000",
     "currency": "USD",
     "items": [
       {
@@ -46,8 +74,7 @@ curl -X POST http://localhost:8080/orders \
 
 ## Next Steps
 
-- add persistence adapters
-- add sql migrations
-- add HTTP contracts per module
-- split `orders` into command/query if needed
+- add persistence + migrations for `payments` and `inventory`
+- add HTTP contracts for modules without public APIs yet
+- add external events / async workflows (outbox + broker)
 - add more modules such as `catalog`, `customers`, and `carts`

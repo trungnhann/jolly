@@ -6,8 +6,9 @@ This document defines domain and integration events emitted across modules.
 
 Current status:
 
-- there is no event bus or message broker integration yet
+- there is no event bus, outbox, or message broker integration yet
 - modules communicate synchronously via module contracts (`backend/common/module/contracts`)
+- modules may also expose synchronous HTTP APIs (OpenAPI)
 
 This doc is kept so we can add events later without changing the documentation structure.
 
@@ -29,6 +30,7 @@ Suggested envelope:
   "event_id": "uuid",
   "occurred_at": "2026-06-11T10:00:00Z",
   "producer": "orders",
+  "correlation_id": "optional-correlation-id",
   "payload": {}
 }
 ```
@@ -54,6 +56,23 @@ Payload:
 - currency
 - ordered_at
 - line_items_snapshot
+
+### orders.order_status_changed (planned)
+
+Produced by: `orders`
+
+Used by:
+
+- payments
+- inventory
+- notifications
+
+Payload:
+
+- order_uuid
+- previous_status
+- new_status
+- changed_at
 
 ### payments.payment_authorized (planned)
 
@@ -87,6 +106,23 @@ Payload:
 - captured_amount
 - currency
 - captured_at
+
+### users.user_created (planned)
+
+Produced by: `users`
+
+Used by:
+
+- orders
+- notifications
+
+Payload:
+
+- user_uuid
+- email
+- name
+- role
+- created_at
 
 ### inventory.stock_reserved (planned)
 
