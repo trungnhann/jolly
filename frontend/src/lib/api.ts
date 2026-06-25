@@ -10,12 +10,19 @@ export async function apiRequest<T>(
   init?: RequestInit,
 ): Promise<T> {
   const token = getStoredToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  if (!(init?.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(path, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
+      ...headers,
+      ...(init?.headers as Record<string, string> ?? {}),
     },
   });
 

@@ -6,6 +6,7 @@ import (
 	inventoryclient "jolly/backend/inventory/api/module/client"
 	ordersclient "jolly/backend/orders/api/module/client"
 	paymentsclient "jolly/backend/payments/api/module/client"
+	productsclient "jolly/backend/products/api/module/client"
 	usersclient "jolly/backend/users/api/module/client"
 )
 
@@ -14,6 +15,7 @@ type Contracts struct {
 	Payments  paymentsclient.Payments
 	Inventory inventoryclient.Inventory
 	Users     usersclient.Users
+	Products  productsclient.Products
 }
 
 func (c *Contracts) Verify() error {
@@ -30,6 +32,9 @@ func (c *Contracts) Verify() error {
 	}
 	if c.Users == nil {
 		err = errors.Join(err, errors.New("users module contract is empty"))
+	}
+	if c.Products == nil {
+		err = errors.Join(err, errors.New("products module contract is empty"))
 	}
 
 	return err

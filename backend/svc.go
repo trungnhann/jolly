@@ -4,16 +4,19 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"jolly/backend/common/file"
 	commonhttp "jolly/backend/common/http"
 	"jolly/backend/common/module"
 	"jolly/backend/common/module/contracts"
 	"jolly/backend/inventory"
 	"jolly/backend/orders"
 	"jolly/backend/payments"
+	"jolly/backend/products"
 	"jolly/backend/users"
 )
 
@@ -34,17 +37,29 @@ func New(ctx context.Context, dbPgx *pgxpool.Pool, cfg Config) (*App, error) {
 		panic("db connection pool cannot be nil")
 	}
 
+	storageRootDir := os.Getenv("STORAGE_ROOT_DIR")
+	if storageRootDir == "" {
+		storageRootDir = "/tmp/jolly_storage"
+	}
+	storageBaseURL := os.Getenv("STORAGE_BASE_URL")
+	if storageBaseURL == "" {
+		storageBaseURL = "http://localhost:8080/public"
+	}
+	fileStorage := file.NewPublicStorage(storageRootDir, storageBaseURL)
+
 	moduleContracts := &contracts.Contracts{}
 	registry := module.NewRegistry(moduleContracts)
 
 	registry.Add(
 		payments.NewModule(),
 		inventory.NewModule(),
-		users.NewModule(dbPgx),
+		products.NewModule(dbPgx, moduleContracts, fileStorage),
+		users.NewModule(dbPgx, fileStorage),
 		orders.NewModule(dbPgx, moduleContracts),
 	)
 
 	e := commonhttp.NewEcho()
+	e.Static("/public", storageRootDir)
 
 	if err := registry.InitAll(ctx); err != nil {
 		return nil, err

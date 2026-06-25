@@ -17,6 +17,7 @@ import (
 	"jolly/backend/users/domain"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // CreateUser defines model for CreateUser.
@@ -58,6 +59,7 @@ type LoginUser struct {
 
 // User defines model for User.
 type User struct {
+	AvatarUrl *string   `json:"avatar_url"`
 	CreatedAt time.Time `json:"created_at"`
 	Email     string    `json:"email"`
 	Name      string    `json:"name"`
@@ -94,11 +96,19 @@ type NotFound = ErrorResponse
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
 
+// UploadAvatarMultipartBody defines parameters for UploadAvatar.
+type UploadAvatarMultipartBody struct {
+	File *openapi_types.File `json:"file,omitempty"`
+}
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUser
 
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = LoginUser
+
+// UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
+type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -185,6 +195,9 @@ type ClientInterface interface {
 
 	// GetUser request
 	GetUser(ctx context.Context, userUuid UserUUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UploadAvatarWithBody request with any body
+	UploadAvatarWithBody(ctx context.Context, userUuid UserUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) CreateUserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -237,6 +250,18 @@ func (c *Client) LoginUser(ctx context.Context, body LoginUserJSONRequestBody, r
 
 func (c *Client) GetUser(ctx context.Context, userUuid UserUUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetUserRequest(c.Server, userUuid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UploadAvatarWithBody(ctx context.Context, userUuid UserUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadAvatarRequestWithBody(c.Server, userUuid, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -361,6 +386,42 @@ func NewGetUserRequest(server string, userUuid UserUUID) (*http.Request, error) 
 	return req, nil
 }
 
+// NewUploadAvatarRequestWithBody generates requests for UploadAvatar with any type of body
+func NewUploadAvatarRequestWithBody(server string, userUuid UserUUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "user_uuid", runtime.ParamLocationPath, userUuid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/users/%s/avatar", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -416,6 +477,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetUserWithResponse request
 	GetUserWithResponse(ctx context.Context, userUuid UserUUID, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
+
+	// UploadAvatarWithBodyWithResponse request with any body
+	UploadAvatarWithBodyWithResponse(ctx context.Context, userUuid UserUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAvatarResponse, error)
 }
 
 type CreateUserResponse struct {
@@ -492,6 +556,31 @@ func (r GetUserResponse) StatusCode() int {
 	return 0
 }
 
+type UploadAvatarResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *User
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r UploadAvatarResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UploadAvatarResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // CreateUserWithBodyWithResponse request with arbitrary body returning *CreateUserResponse
 func (c *ClientWithResponses) CreateUserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserResponse, error) {
 	rsp, err := c.CreateUserWithBody(ctx, contentType, body, reqEditors...)
@@ -533,6 +622,15 @@ func (c *ClientWithResponses) GetUserWithResponse(ctx context.Context, userUuid 
 		return nil, err
 	}
 	return ParseGetUserResponse(rsp)
+}
+
+// UploadAvatarWithBodyWithResponse request with arbitrary body returning *UploadAvatarResponse
+func (c *ClientWithResponses) UploadAvatarWithBodyWithResponse(ctx context.Context, userUuid UserUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAvatarResponse, error) {
+	rsp, err := c.UploadAvatarWithBody(ctx, userUuid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUploadAvatarResponse(rsp)
 }
 
 // ParseCreateUserResponse parses an HTTP response from a CreateUserWithResponse call
@@ -631,6 +729,53 @@ func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 	}
 
 	response := &GetUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest User
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUploadAvatarResponse parses an HTTP response from a UploadAvatarWithResponse call
+func ParseUploadAvatarResponse(rsp *http.Response) (*UploadAvatarResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UploadAvatarResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

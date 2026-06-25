@@ -36,6 +36,7 @@ type User struct {
 	name         string
 	passwordHash string
 	role         Role
+	avatarURL    string
 	createdAt    time.Time
 	updatedAt    time.Time
 }
@@ -69,12 +70,22 @@ func (u User) Role() Role {
 	return u.role
 }
 
+func (u User) AvatarURL() string {
+	return u.avatarURL
+}
+
 func (u User) CreatedAt() time.Time {
 	return u.createdAt
 }
 
 func (u User) UpdatedAt() time.Time {
 	return u.updatedAt
+}
+
+func (u *User) UpdateAvatar(url string) error {
+	u.avatarURL = strings.TrimSpace(url)
+	u.updatedAt = common.NowUTC()
+	return nil
 }
 
 func NewUser(id UserUUID, email string, name string, passwordHash string, role Role) (User, error) {
@@ -111,6 +122,7 @@ func NewUser(id UserUUID, email string, name string, passwordHash string, role R
 		name:         name,
 		passwordHash: passwordHash,
 		role:         role,
+		avatarURL:    "",
 		createdAt:    now,
 		updatedAt:    now,
 	}, nil

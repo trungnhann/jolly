@@ -8,6 +8,7 @@ func UnmarshalUser(
 	name string,
 	passwordHash string,
 	role Role,
+	avatarURL string,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) User {
@@ -17,6 +18,7 @@ func UnmarshalUser(
 		name:         name,
 		passwordHash: passwordHash,
 		role:         role,
+		avatarURL:    avatarURL,
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 	}

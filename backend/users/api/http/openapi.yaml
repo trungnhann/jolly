@@ -81,6 +81,41 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /users/{user_uuid}/avatar:
+    post:
+      summary: Upload user avatar
+      operationId: uploadAvatar
+      tags:
+        - users
+      parameters:
+        - name: user_uuid
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UserUUID"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Avatar uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   schemas:
     LoginUser:
@@ -150,6 +185,9 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/UserRole"
+        avatar_url:
+          type: string
+          nullable: true
         created_at:
           type: string
           format: date-time

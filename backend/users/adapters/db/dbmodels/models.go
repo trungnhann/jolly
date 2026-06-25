@@ -18,4 +18,5 @@ type UsersUser struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	PasswordHash string
+	AvatarUrl    *string
 }

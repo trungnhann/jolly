@@ -36,6 +36,7 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user domain.User) e
 		Name:         user.Name(),
 		Role:         user.Role(),
 		PasswordHash: user.PasswordHash(),
+		AvatarUrl:    nil, // Empty by default upon registration
 		CreatedAt:    user.CreatedAt(),
 		UpdatedAt:    user.UpdatedAt(),
 	})
@@ -60,12 +61,18 @@ func (r *PostgresRepository) UserByID(ctx context.Context, userID domain.UserUUI
 		return domain.User{}, fmt.Errorf("failed to get user %s: %w", userID, err)
 	}
 
+	var avatarURL string
+	if dbUser.AvatarUrl != nil {
+		avatarURL = *dbUser.AvatarUrl
+	}
+
 	return domain.UnmarshalUser(
 		dbUser.UserUuid,
 		dbUser.Email,
 		dbUser.Name,
 		dbUser.PasswordHash,
 		dbUser.Role,
+		avatarURL,
 		dbUser.CreatedAt,
 		dbUser.UpdatedAt,
 	), nil
@@ -82,13 +89,39 @@ func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (dom
 		return domain.User{}, fmt.Errorf("failed to get user by email %s: %w", email, err)
 	}
 
+	var avatarURL string
+	if dbUser.AvatarUrl != nil {
+		avatarURL = *dbUser.AvatarUrl
+	}
+
 	return domain.UnmarshalUser(
 		dbUser.UserUuid,
 		dbUser.Email,
 		dbUser.Name,
 		dbUser.PasswordHash,
 		dbUser.Role,
+		avatarURL,
 		dbUser.CreatedAt,
 		dbUser.UpdatedAt,
 	), nil
+}
+
+func (r *PostgresRepository) UpdateUserAvatar(ctx context.Context, userID domain.UserUUID, avatarURL string) error {
+	queries := dbmodels.New(r.db)
+
+	var avatarVal *string
+	if avatarURL != "" {
+		avatarVal = &avatarURL
+	}
+
+	err := queries.UpdateUserAvatar(ctx, dbmodels.UpdateUserAvatarParams{
+		UserUuid:  userID,
+		AvatarUrl: avatarVal,
+		UpdatedAt: common.NowUTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update avatar for user %s: %w", userID, err)
+	}
+
+	return nil
 }

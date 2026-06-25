@@ -69,3 +69,22 @@ func (h *Handlers) CreateUser(ctx context.Context, cmd CreateUser) (domain.UserU
 
 	return userUUID, nil
 }
+
+type UpdateUserAvatar struct {
+	UserID    domain.UserUUID
+	AvatarURL string
+}
+
+func (h *Handlers) UpdateUserAvatar(ctx context.Context, cmd UpdateUserAvatar) error {
+	if cmd.UserID.IsZero() {
+		return domain.ErrUserIDEmpty
+	}
+
+	// Verify user exists
+	_, err := h.userRepository.UserByID(ctx, cmd.UserID)
+	if err != nil {
+		return err
+	}
+
+	return h.userRepository.UpdateUserAvatar(ctx, cmd.UserID, cmd.AvatarURL)
+}

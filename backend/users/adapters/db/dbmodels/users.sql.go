@@ -19,11 +19,12 @@ INSERT INTO users.users (
 	name,
 	role,
 	password_hash,
+	avatar_url,
 	created_at,
 	updated_at
 )
 VALUES
-	($1, $2, $3, $4, $5, $6, $7)
+	($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateUserParams struct {
@@ -32,6 +33,7 @@ type CreateUserParams struct {
 	Name         string
 	Role         domain.Role
 	PasswordHash string
+	AvatarUrl    *string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -43,6 +45,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.Name,
 		arg.Role,
 		arg.PasswordHash,
+		arg.AvatarUrl,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -51,7 +54,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 
 const getUser = `-- name: GetUser :one
 SELECT
-	user_uuid, email, name, role, created_at, updated_at, password_hash
+	user_uuid, email, name, role, created_at, updated_at, password_hash, avatar_url
 FROM
 	users.users
 WHERE
@@ -70,13 +73,14 @@ func (q *Queries) GetUser(ctx context.Context, userUuid domain.UserUUID) (UsersU
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PasswordHash,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT
-	user_uuid, email, name, role, created_at, updated_at, password_hash
+	user_uuid, email, name, role, created_at, updated_at, password_hash, avatar_url
 FROM
 	users.users
 WHERE
@@ -95,6 +99,27 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (UsersUser, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.PasswordHash,
+		&i.AvatarUrl,
 	)
 	return i, err
+}
+
+const updateUserAvatar = `-- name: UpdateUserAvatar :exec
+UPDATE users.users
+SET
+	avatar_url = $2,
+	updated_at = $3
+WHERE
+	user_uuid = $1
+`
+
+type UpdateUserAvatarParams struct {
+	UserUuid  domain.UserUUID
+	AvatarUrl *string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) error {
+	_, err := q.db.Exec(ctx, updateUserAvatar, arg.UserUuid, arg.AvatarUrl, arg.UpdatedAt)
+	return err
 }

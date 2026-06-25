@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
 	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // CreateUser defines model for CreateUser.
@@ -56,6 +58,7 @@ type LoginUser struct {
 
 // User defines model for User.
 type User struct {
+	AvatarUrl *string   `json:"avatar_url"`
 	CreatedAt time.Time `json:"created_at"`
 	Email     string    `json:"email"`
 	Name      string    `json:"name"`
@@ -92,11 +95,19 @@ type NotFound = ErrorResponse
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
 
+// UploadAvatarMultipartBody defines parameters for UploadAvatar.
+type UploadAvatarMultipartBody struct {
+	File *openapi_types.File `json:"file,omitempty"`
+}
+
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUser
 
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = LoginUser
+
+// UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
+type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -109,6 +120,9 @@ type ServerInterface interface {
 	// Get a user by UUID
 	// (GET /users/{user_uuid})
 	GetUser(ctx echo.Context, userUuid UserUUID) error
+	// Upload user avatar
+	// (POST /users/{user_uuid}/avatar)
+	UploadAvatar(ctx echo.Context, userUuid UserUUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -150,6 +164,22 @@ func (w *ServerInterfaceWrapper) GetUser(ctx echo.Context) error {
 	return err
 }
 
+// UploadAvatar converts echo context to params.
+func (w *ServerInterfaceWrapper) UploadAvatar(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "user_uuid" -------------
+	var userUuid UserUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "user_uuid", ctx.Param("user_uuid"), &userUuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter user_uuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UploadAvatar(ctx, userUuid)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -181,6 +211,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/users", wrapper.CreateUser)
 	router.POST(baseURL+"/users/login", wrapper.LoginUser)
 	router.GET(baseURL+"/users/:user_uuid", wrapper.GetUser)
+	router.POST(baseURL+"/users/:user_uuid/avatar", wrapper.UploadAvatar)
 
 }
 
@@ -315,6 +346,51 @@ func (response GetUser404JSONResponse) VisitGetUserResponse(w http.ResponseWrite
 	return json.NewEncoder(w).Encode(response)
 }
 
+type UploadAvatarRequestObject struct {
+	UserUuid UserUUID `json:"user_uuid"`
+	Body     *multipart.Reader
+}
+
+type UploadAvatarResponseObject interface {
+	VisitUploadAvatarResponse(w http.ResponseWriter) error
+}
+
+type UploadAvatar200JSONResponse User
+
+func (response UploadAvatar200JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UploadAvatar400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UploadAvatar400JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UploadAvatar401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UploadAvatar401JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UploadAvatar404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UploadAvatar404JSONResponse) VisitUploadAvatarResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Create a new user
@@ -326,6 +402,9 @@ type StrictServerInterface interface {
 	// Get a user by UUID
 	// (GET /users/{user_uuid})
 	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
+	// Upload user avatar
+	// (POST /users/{user_uuid}/avatar)
+	UploadAvatar(ctx context.Context, request UploadAvatarRequestObject) (UploadAvatarResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -417,6 +496,37 @@ func (sh *strictHandler) GetUser(ctx echo.Context, userUuid UserUUID) error {
 		return err
 	} else if validResponse, ok := response.(GetUserResponseObject); ok {
 		return validResponse.VisitGetUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UploadAvatar operation middleware
+func (sh *strictHandler) UploadAvatar(ctx echo.Context, userUuid UserUUID) error {
+	var request UploadAvatarRequestObject
+
+	request.UserUuid = userUuid
+
+	if reader, err := ctx.Request().MultipartReader(); err != nil {
+		return err
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadAvatar(ctx.Request().Context(), request.(UploadAvatarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadAvatar")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UploadAvatarResponseObject); ok {
+		return validResponse.VisitUploadAvatarResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"jolly/backend/common"
+	"jolly/backend/common/file"
 	"jolly/backend/common/module"
 	"jolly/backend/common/module/contracts"
 	usersdb "jolly/backend/users/adapters/db"
@@ -17,14 +18,18 @@ import (
 )
 
 type Module struct {
-	pgxDb *pgxpool.Pool
+	pgxDb   *pgxpool.Pool
+	storage file.Storage
 
 	commandHandlers *command.Handlers
 	queryHandlers   *query.Handlers
 }
 
-func NewModule(pgxDb *pgxpool.Pool) *Module {
-	return &Module{pgxDb: pgxDb}
+func NewModule(pgxDb *pgxpool.Pool, storage file.Storage) *Module {
+	return &Module{
+		pgxDb:   pgxDb,
+		storage: storage,
+	}
 }
 
 func (m *Module) Name() module.Name {
@@ -58,5 +63,5 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 }
 
 func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
-	return usershttp.Register(ctx, e, m.commandHandlers, m.queryHandlers)
+	return usershttp.Register(ctx, e, m.commandHandlers, m.queryHandlers, m.storage)
 }

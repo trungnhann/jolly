@@ -21,8 +21,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="relative flex flex-1 flex-col">{children}</div>
 
       <footer className="relative mt-auto">
-        <div className="mx-auto w-full max-w-[1400px] px-4 pb-4">
-          <div className="rounded-[32px] bg-[#0f1115] text-white px-8 py-16 md:px-16 shadow-2xl dark:bg-[#0f1115]">
+        <div className="mx-auto w-full">
+          <div className="rounded-t-[32px] bg-[#0f1115] text-white px-8 py-16 md:px-16 shadow-2xl dark:bg-[#0f1115]">
             <div className="flex flex-col md:flex-row justify-between items-start gap-12">
               <div className="flex flex-col gap-6 max-w-sm">
                 <div className="flex items-center gap-2.5">
