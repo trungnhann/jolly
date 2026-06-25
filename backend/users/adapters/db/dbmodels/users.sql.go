@@ -18,20 +18,22 @@ INSERT INTO users.users (
 	email,
 	name,
 	role,
+	password_hash,
 	created_at,
 	updated_at
 )
 VALUES
-	($1, $2, $3, $4, $5, $6)
+	($1, $2, $3, $4, $5, $6, $7)
 `
 
 type CreateUserParams struct {
-	UserUuid  domain.UserUUID
-	Email     string
-	Name      string
-	Role      domain.Role
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	UserUuid     domain.UserUUID
+	Email        string
+	Name         string
+	Role         domain.Role
+	PasswordHash string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -40,6 +42,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.Email,
 		arg.Name,
 		arg.Role,
+		arg.PasswordHash,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -48,7 +51,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 
 const getUser = `-- name: GetUser :one
 SELECT
-	user_uuid, email, name, role, created_at, updated_at
+	user_uuid, email, name, role, created_at, updated_at, password_hash
 FROM
 	users.users
 WHERE
@@ -66,6 +69,32 @@ func (q *Queries) GetUser(ctx context.Context, userUuid domain.UserUUID) (UsersU
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT
+	user_uuid, email, name, role, created_at, updated_at, password_hash
+FROM
+	users.users
+WHERE
+	email = $1
+LIMIT 1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (UsersUser, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i UsersUser
+	err := row.Scan(
+		&i.UserUuid,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PasswordHash,
 	)
 	return i, err
 }

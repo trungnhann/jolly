@@ -31,6 +31,30 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /users/login:
+    post:
+      summary: Login user
+      operationId: loginUser
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginUser"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /users/{user_uuid}:
     get:
       summary: Get a user by UUID
@@ -59,15 +83,40 @@ paths:
 
 components:
   schemas:
+    LoginUser:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - user_uuid
+      properties:
+        token:
+          type: string
+        user_uuid:
+          $ref: "#/components/schemas/UserUUID"
+
     CreateUser:
       type: object
       required:
         - email
         - name
+        - password
       properties:
         email:
           type: string
         name:
+          type: string
+        password:
           type: string
         role:
           $ref: "#/components/schemas/UserRole"

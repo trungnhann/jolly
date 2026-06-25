@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"jolly/backend/common"
 	"jolly/backend/users/domain"
 )
@@ -21,18 +23,29 @@ func NewHandlers(userRepository domain.UserRepository) *Handlers {
 }
 
 type CreateUser struct {
-	Email string
-	Name  string
-	Role  domain.Role
+	Email    string
+	Name     string
+	Password string
+	Role     domain.Role
 }
 
 func (h *Handlers) CreateUser(ctx context.Context, cmd CreateUser) (domain.UserUUID, error) {
+	if cmd.Password == "" {
+		return domain.UserUUID{}, common.NewInvalidInputError("password_empty", "password cannot be empty")
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(cmd.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return domain.UserUUID{}, err
+	}
+
 	userUUID := domain.UserUUID{UUID: common.NewUUIDv7()}
 
 	user, err := domain.NewUser(
 		userUUID,
 		cmd.Email,
 		cmd.Name,
+		string(hashed),
 		cmd.Role,
 	)
 	if err != nil {

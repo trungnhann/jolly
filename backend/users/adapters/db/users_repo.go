@@ -31,12 +31,13 @@ func (r *PostgresRepository) CreateUser(ctx context.Context, user domain.User) e
 	queries := dbmodels.New(r.db)
 
 	err := queries.CreateUser(ctx, dbmodels.CreateUserParams{
-		UserUuid:  user.ID(),
-		Email:     user.Email(),
-		Name:      user.Name(),
-		Role:      user.Role(),
-		CreatedAt: user.CreatedAt(),
-		UpdatedAt: user.UpdatedAt(),
+		UserUuid:     user.ID(),
+		Email:        user.Email(),
+		Name:         user.Name(),
+		Role:         user.Role(),
+		PasswordHash: user.PasswordHash(),
+		CreatedAt:    user.CreatedAt(),
+		UpdatedAt:    user.UpdatedAt(),
 	})
 	if err != nil {
 		if common.IsUniqueViolationError(err, usersEmailUniqueConstraint) {
@@ -63,6 +64,29 @@ func (r *PostgresRepository) UserByID(ctx context.Context, userID domain.UserUUI
 		dbUser.UserUuid,
 		dbUser.Email,
 		dbUser.Name,
+		dbUser.PasswordHash,
+		dbUser.Role,
+		dbUser.CreatedAt,
+		dbUser.UpdatedAt,
+	), nil
+}
+
+func (r *PostgresRepository) UserByEmail(ctx context.Context, email string) (domain.User, error) {
+	queries := dbmodels.New(r.db)
+
+	dbUser, err := queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.User{}, common.NewNotFoundError("user_not_found", "user not found")
+		}
+		return domain.User{}, fmt.Errorf("failed to get user by email %s: %w", email, err)
+	}
+
+	return domain.UnmarshalUser(
+		dbUser.UserUuid,
+		dbUser.Email,
+		dbUser.Name,
+		dbUser.PasswordHash,
 		dbUser.Role,
 		dbUser.CreatedAt,
 		dbUser.UpdatedAt,

@@ -19,9 +19,10 @@ import (
 
 // CreateUser defines model for CreateUser.
 type CreateUser struct {
-	Email string    `json:"email"`
-	Name  string    `json:"name"`
-	Role  *UserRole `json:"role,omitempty"`
+	Email    string    `json:"email"`
+	Name     string    `json:"name"`
+	Password string    `json:"password"`
+	Role     *UserRole `json:"role,omitempty"`
 }
 
 // ErrorDetail defines model for ErrorDetail.
@@ -37,6 +38,20 @@ type ErrorResponse struct {
 	Details *[]ErrorDetail `json:"details,omitempty"`
 	Message string         `json:"message"`
 	Slug    string         `json:"slug"`
+}
+
+// LoginResponse defines model for LoginResponse.
+type LoginResponse struct {
+	Token string `json:"token"`
+
+	// UserUuid Unique user identifier
+	UserUuid UserUUID `json:"user_uuid"`
+}
+
+// LoginUser defines model for LoginUser.
+type LoginUser struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // User defines model for User.
@@ -80,11 +95,17 @@ type Unauthorized = ErrorResponse
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUser
 
+// LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
+type LoginUserJSONRequestBody = LoginUser
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Create a new user
 	// (POST /users)
 	CreateUser(ctx echo.Context) error
+	// Login user
+	// (POST /users/login)
+	LoginUser(ctx echo.Context) error
 	// Get a user by UUID
 	// (GET /users/{user_uuid})
 	GetUser(ctx echo.Context, userUuid UserUUID) error
@@ -101,6 +122,15 @@ func (w *ServerInterfaceWrapper) CreateUser(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CreateUser(ctx)
+	return err
+}
+
+// LoginUser converts echo context to params.
+func (w *ServerInterfaceWrapper) LoginUser(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.LoginUser(ctx)
 	return err
 }
 
@@ -149,6 +179,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/users", wrapper.CreateUser)
+	router.POST(baseURL+"/users/login", wrapper.LoginUser)
 	router.GET(baseURL+"/users/:user_uuid", wrapper.GetUser)
 
 }
@@ -205,6 +236,41 @@ func (response CreateUser409JSONResponse) VisitCreateUserResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
+type LoginUserRequestObject struct {
+	Body *LoginUserJSONRequestBody
+}
+
+type LoginUserResponseObject interface {
+	VisitLoginUserResponse(w http.ResponseWriter) error
+}
+
+type LoginUser200JSONResponse LoginResponse
+
+func (response LoginUser200JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LoginUser400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response LoginUser400JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LoginUser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response LoginUser401JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetUserRequestObject struct {
 	UserUuid UserUUID `json:"user_uuid"`
 }
@@ -254,6 +320,9 @@ type StrictServerInterface interface {
 	// Create a new user
 	// (POST /users)
 	CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error)
+	// Login user
+	// (POST /users/login)
+	LoginUser(ctx context.Context, request LoginUserRequestObject) (LoginUserResponseObject, error)
 	// Get a user by UUID
 	// (GET /users/{user_uuid})
 	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
@@ -294,6 +363,35 @@ func (sh *strictHandler) CreateUser(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(CreateUserResponseObject); ok {
 		return validResponse.VisitCreateUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// LoginUser operation middleware
+func (sh *strictHandler) LoginUser(ctx echo.Context) error {
+	var request LoginUserRequestObject
+
+	var body LoginUserJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LoginUser(ctx.Request().Context(), request.(LoginUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LoginUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LoginUserResponseObject); ok {
+		return validResponse.VisitLoginUserResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

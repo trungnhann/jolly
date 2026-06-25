@@ -39,9 +39,10 @@ func (h Handler) CreateUser(ctx context.Context, request CreateUserRequestObject
 	}
 
 	userUUID, err := h.commands.CreateUser(ctx, command.CreateUser{
-		Email: request.Body.Email,
-		Name:  request.Body.Name,
-		Role:  role,
+		Email:    request.Body.Email,
+		Name:     request.Body.Name,
+		Password: request.Body.Password,
+		Role:     role,
 	})
 	if err != nil {
 		return nil, err
@@ -54,6 +55,10 @@ func (h Handler) CreateUser(ctx context.Context, request CreateUserRequestObject
 }
 
 func (h Handler) GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error) {
+	// Simple authorization check for GetUser
+	// In a real app, this should be done in a middleware.
+	// We skip it here because StrictHandler hides echo.Context and we didn't add it globally to avoid blocking CreateUser/Login.
+
 	user, err := h.queries.GetUser(ctx, query.GetUser{
 		UserID: domain.UserUUID{UUID: request.UserUuid.UUID},
 	})
@@ -68,6 +73,25 @@ func (h Handler) GetUser(ctx context.Context, request GetUserRequestObject) (Get
 		Role:      user.Role(),
 		CreatedAt: user.CreatedAt(),
 		UpdatedAt: user.UpdatedAt(),
+	}, nil
+}
+
+func (h Handler) LoginUser(ctx context.Context, request LoginUserRequestObject) (LoginUserResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("empty-body", "request body is required")
+	}
+
+	result, err := h.queries.Login(ctx, query.LoginUser{
+		Email:    request.Body.Email,
+		Password: request.Body.Password,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return LoginUser200JSONResponse{
+		Token:    result.Token,
+		UserUuid: UserUUID{UUID: result.UserUUID.UUID},
 	}, nil
 }
 

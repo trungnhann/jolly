@@ -31,20 +31,22 @@ type UserUUID struct {
 }
 
 type User struct {
-	id        UserUUID
-	email     string
-	name      string
-	role      Role
-	createdAt time.Time
-	updatedAt time.Time
+	id           UserUUID
+	email        string
+	name         string
+	passwordHash string
+	role         Role
+	createdAt    time.Time
+	updatedAt    time.Time
 }
 
 var (
-	ErrUserIDEmpty  = errors.New("user id cannot be empty")
-	ErrInvalidEmail = errors.New("invalid email")
-	ErrNameEmpty    = errors.New("name cannot be empty")
-	ErrRoleEmpty    = errors.New("role cannot be empty")
-	ErrRoleInvalid  = errors.New("invalid role")
+	ErrUserIDEmpty       = errors.New("user id cannot be empty")
+	ErrInvalidEmail      = errors.New("invalid email")
+	ErrNameEmpty         = errors.New("name cannot be empty")
+	ErrPasswordHashEmpty = errors.New("password hash cannot be empty")
+	ErrRoleEmpty         = errors.New("role cannot be empty")
+	ErrRoleInvalid       = errors.New("invalid role")
 )
 
 func (u User) ID() UserUUID {
@@ -59,6 +61,10 @@ func (u User) Name() string {
 	return u.name
 }
 
+func (u User) PasswordHash() string {
+	return u.passwordHash
+}
+
 func (u User) Role() Role {
 	return u.role
 }
@@ -71,7 +77,7 @@ func (u User) UpdatedAt() time.Time {
 	return u.updatedAt
 }
 
-func NewUser(id UserUUID, email string, name string, role Role) (User, error) {
+func NewUser(id UserUUID, email string, name string, passwordHash string, role Role) (User, error) {
 	if id.IsZero() {
 		return User{}, ErrUserIDEmpty
 	}
@@ -86,6 +92,10 @@ func NewUser(id UserUUID, email string, name string, role Role) (User, error) {
 		return User{}, ErrNameEmpty
 	}
 
+	if passwordHash == "" {
+		return User{}, ErrPasswordHashEmpty
+	}
+
 	if role.IsZero() {
 		return User{}, ErrRoleEmpty
 	}
@@ -96,11 +106,12 @@ func NewUser(id UserUUID, email string, name string, role Role) (User, error) {
 	now := common.NowUTC()
 
 	return User{
-		id:        id,
-		email:     email,
-		name:      name,
-		role:      role,
-		createdAt: now,
-		updatedAt: now,
+		id:           id,
+		email:        email,
+		name:         name,
+		passwordHash: passwordHash,
+		role:         role,
+		createdAt:    now,
+		updatedAt:    now,
 	}, nil
 }

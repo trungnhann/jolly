@@ -21,9 +21,10 @@ import (
 
 // CreateUser defines model for CreateUser.
 type CreateUser struct {
-	Email string    `json:"email"`
-	Name  string    `json:"name"`
-	Role  *UserRole `json:"role,omitempty"`
+	Email    string    `json:"email"`
+	Name     string    `json:"name"`
+	Password string    `json:"password"`
+	Role     *UserRole `json:"role,omitempty"`
 }
 
 // ErrorDetail defines model for ErrorDetail.
@@ -39,6 +40,20 @@ type ErrorResponse struct {
 	Details *[]ErrorDetail `json:"details,omitempty"`
 	Message string         `json:"message"`
 	Slug    string         `json:"slug"`
+}
+
+// LoginResponse defines model for LoginResponse.
+type LoginResponse struct {
+	Token string `json:"token"`
+
+	// UserUuid Unique user identifier
+	UserUuid UserUUID `json:"user_uuid"`
+}
+
+// LoginUser defines model for LoginUser.
+type LoginUser struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // User defines model for User.
@@ -81,6 +96,9 @@ type Unauthorized = ErrorResponse
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
 type CreateUserJSONRequestBody = CreateUser
+
+// LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
+type LoginUserJSONRequestBody = LoginUser
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -160,6 +178,11 @@ type ClientInterface interface {
 
 	CreateUser(ctx context.Context, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// LoginUserWithBody request with any body
+	LoginUserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	LoginUser(ctx context.Context, body LoginUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetUser request
 	GetUser(ctx context.Context, userUuid UserUUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
@@ -178,6 +201,30 @@ func (c *Client) CreateUserWithBody(ctx context.Context, contentType string, bod
 
 func (c *Client) CreateUser(ctx context.Context, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateUserRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) LoginUserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginUserRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) LoginUser(ctx context.Context, body LoginUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLoginUserRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +268,46 @@ func NewCreateUserRequestWithBody(server string, contentType string, body io.Rea
 	}
 
 	operationPath := fmt.Sprintf("/users")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewLoginUserRequest calls the generic LoginUser builder with application/json body
+func NewLoginUserRequest(server string, body LoginUserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLoginUserRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLoginUserRequestWithBody generates requests for LoginUser with any type of body
+func NewLoginUserRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/users/login")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -322,6 +409,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateUserWithResponse(ctx context.Context, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserResponse, error)
 
+	// LoginUserWithBodyWithResponse request with any body
+	LoginUserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginUserResponse, error)
+
+	LoginUserWithResponse(ctx context.Context, body LoginUserJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginUserResponse, error)
+
 	// GetUserWithResponse request
 	GetUserWithResponse(ctx context.Context, userUuid UserUUID, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
 }
@@ -345,6 +437,30 @@ func (r CreateUserResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateUserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type LoginUserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LoginResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r LoginUserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LoginUserResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -391,6 +507,23 @@ func (c *ClientWithResponses) CreateUserWithResponse(ctx context.Context, body C
 		return nil, err
 	}
 	return ParseCreateUserResponse(rsp)
+}
+
+// LoginUserWithBodyWithResponse request with arbitrary body returning *LoginUserResponse
+func (c *ClientWithResponses) LoginUserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginUserResponse, error) {
+	rsp, err := c.LoginUserWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginUserResponse(rsp)
+}
+
+func (c *ClientWithResponses) LoginUserWithResponse(ctx context.Context, body LoginUserJSONRequestBody, reqEditors ...RequestEditorFn) (*LoginUserResponse, error) {
+	rsp, err := c.LoginUser(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLoginUserResponse(rsp)
 }
 
 // GetUserWithResponse request returning *GetUserResponse
@@ -443,6 +576,46 @@ func ParseCreateUserResponse(rsp *http.Response) (*CreateUserResponse, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLoginUserResponse parses an HTTP response from a LoginUserWithResponse call
+func ParseLoginUserResponse(rsp *http.Response) (*LoginUserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LoginUserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LoginResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	}
 

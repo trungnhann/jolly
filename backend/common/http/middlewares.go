@@ -8,9 +8,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"time"
 	"unicode/utf8"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lithammer/shortuuid/v3"
@@ -128,5 +130,40 @@ func requestLogMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		logger.Info("Request done")
 		return err
+	}
+}
+
+func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" {
+			return echo.NewHTTPError(http.StatusUnauthorized, "missing authorization header")
+		}
+
+		var tokenString string
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenString = authHeader[7:]
+		} else {
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid authorization header format")
+		}
+
+		jwtSecret := os.Getenv("JWT_SECRET")
+		if jwtSecret == "" {
+			jwtSecret = "jolly-secret-key-development"
+		}
+
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return []byte(jwtSecret), nil
+		})
+
+		if err != nil || !token.Valid {
+			return echo.NewHTTPError(http.StatusUnauthorized, "invalid or expired token")
+		}
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			c.Set("user_id", claims["sub"])
+		}
+
+		return next(c)
 	}
 }
