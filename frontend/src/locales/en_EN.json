@@ -1,0 +1,80 @@
+{
+  "common": {
+    "jollyRacing": "Jolly Racing",
+    "f1": "F1",
+    "loading": "Loading...",
+    "error": "Error"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "orders": "Orders",
+    "standings": "Standings",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "register": "Register"
+  },
+  "footer": {
+    "description": "The most advanced and robust platform for racing data analytics, telemetry, and modern e-commerce. Built with speed and reliability.",
+    "createAccount": "Create an account",
+    "learn": "Learn",
+    "whatIsJolly": "What is Jolly?",
+    "architecture": "Architecture",
+    "security": "Security",
+    "whatsNew": "What's New",
+    "resources": "Resources",
+    "gettingStarted": "Getting Started",
+    "documentation": "Documentation",
+    "apiReference": "API Reference",
+    "partners": "Partners",
+    "help": "Help",
+    "contactUs": "Contact Us",
+    "supportTicket": "Support Ticket",
+    "knowledgeCenter": "Knowledge Center",
+    "equalOpportunity": "Jolly Racing is an equal opportunity platform and does not discriminate.",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "copyright": "© 2026, Jolly Platform. All rights reserved."
+  },
+  "home": {
+    "architecture": "Application Architecture",
+    "platform": "Jolly Platform",
+    "description": "A robust e-commerce backend with modular architecture. Built with Next.js, shadcn/ui, and Tailwind.",
+    "registerTitle": "Register",
+    "registerDesc": "Create a new user account",
+    "signInTitle": "Sign in",
+    "signInDesc": "Login to view your profile"
+  },
+  "auth": {
+    "authentication": "AUTHENTICATION",
+    "registerTitle": "Register Account",
+    "registerDesc": "Create a new Jolly Racing account.",
+    "signInTitle": "Sign In",
+    "signInDesc": "Welcome back to Jolly Racing.",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "name": "Name",
+    "namePlaceholder": "Enter your name",
+    "role": "Role",
+    "roleAdmin": "Admin",
+    "roleCustomer": "Customer",
+    "submitRegister": "Create Account",
+    "submitSignIn": "Sign In",
+    "registering": "Registering...",
+    "signingIn": "Signing in...",
+    "goToSignIn": "Go to Sign in"
+  },
+  "profile": {
+    "title": "User Profile",
+    "description": "Your account details.",
+    "uuid": "UUID",
+    "email": "Email",
+    "name": "Name",
+    "role": "Role",
+    "createdAt": "Created At",
+    "notSignedIn": "You are not signed in.",
+    "loading": "Loading profile..."
+  }
+}
