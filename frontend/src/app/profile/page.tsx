@@ -8,10 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/api";
 import { useUserSession } from "@/lib/session";
 import { useTranslation } from "@/lib/i18n";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, KeyRound } from "lucide-react";
 
 type User = {
   user_uuid: string;
@@ -56,6 +58,52 @@ export default function ProfilePage() {
   const [isDragging, setIsDragging] = React.useState(false);
   const dragStart = React.useRef({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = React.useState({ width: 0, height: 0 });
+
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState("");
+  const [newPassword, setNewPassword] = React.useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = React.useState("");
+  const [isChangingPassword, setIsChangingPassword] = React.useState(false);
+  const [changePasswordError, setChangePasswordError] = React.useState<string | null>(null);
+  const [changePasswordSuccess, setChangePasswordSuccess] = React.useState(false);
+
+  const handleChangePasswordSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      setChangePasswordError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError("New passwords do not match.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setChangePasswordError(null);
+    setChangePasswordSuccess(false);
+
+    try {
+      await apiRequest("/api/users/password/change", {
+        method: "POST",
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+      setChangePasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setTimeout(() => {
+        setIsChangePasswordOpen(false);
+        setChangePasswordSuccess(false);
+      }, 3000);
+    } catch (err) {
+      setChangePasswordError(err instanceof Error ? err.message : "Failed to change password");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -360,6 +408,104 @@ export default function ProfilePage() {
                     {user?.updated_at ? formatDateTime(user.updated_at) : "—"}
                   </div>
                 </div>
+              </div>
+
+              {/* Change Password Collapsible Section */}
+              <div className="mt-4 border-t border-border/30 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsChangePasswordOpen(!isChangePasswordOpen)}
+                  className="w-full flex items-center justify-between border-border/50 bg-background/20"
+                >
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {isChangePasswordOpen ? "Hide Change Password" : "Show Change Password"}
+                  </span>
+                  <KeyRound className="h-4 w-4 text-muted-foreground" />
+                </Button>
+
+                {isChangePasswordOpen && (
+                  <form onSubmit={handleChangePasswordSubmit} className="mt-4 space-y-4 rounded-[calc(var(--radius)-10px)] border border-border bg-background/10 p-5 animate-in slide-in-from-top duration-200">
+                    <div className="space-y-2">
+                      <Label htmlFor="currentPassword" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Current Password
+                      </Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        placeholder="••••••••"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                        disabled={isChangingPassword}
+                        className="bg-background/50 border-border/50 focus:border-primary/50 h-9"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          New Password
+                        </Label>
+                        <Input
+                          id="newPassword"
+                          type="password"
+                          placeholder="••••••••"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                          disabled={isChangingPassword}
+                          className="bg-background/50 border-border/50 focus:border-primary/50 h-9"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirmNewPassword" className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Confirm New Password
+                        </Label>
+                        <Input
+                          id="confirmNewPassword"
+                          type="password"
+                          placeholder="••••••••"
+                          value={confirmNewPassword}
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          required
+                          disabled={isChangingPassword}
+                          className="bg-background/50 border-border/50 focus:border-primary/50 h-9"
+                        />
+                      </div>
+                    </div>
+
+                    {changePasswordError && (
+                      <div className="rounded-[calc(var(--radius)-10px)] border border-destructive bg-destructive/10 px-4 py-2 text-xs text-destructive">
+                        {changePasswordError}
+                      </div>
+                    )}
+
+                    {changePasswordSuccess && (
+                      <div className="rounded-[calc(var(--radius)-10px)] border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs text-emerald-500 font-medium">
+                        Password updated successfully!
+                      </div>
+                    )}
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="submit"
+                        disabled={isChangingPassword || !currentPassword || !newPassword || !confirmNewPassword}
+                        className="bg-gradient-to-r from-primary to-violet-600 hover:from-primary/95 hover:to-violet-600/95 text-white text-xs font-bold uppercase tracking-wider h-9"
+                      >
+                        {isChangingPassword ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                            Updating...
+                          </>
+                        ) : (
+                          "Update Password"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </div>
             </>
           )}

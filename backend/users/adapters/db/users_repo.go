@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"jolly/backend/common"
@@ -121,6 +123,62 @@ func (r *PostgresRepository) UpdateUserAvatar(ctx context.Context, userID domain
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update avatar for user %s: %w", userID, err)
+	}
+
+	return nil
+}
+
+func (r *PostgresRepository) UpdateUserPassword(ctx context.Context, userID domain.UserUUID, passwordHash string) error {
+	queries := dbmodels.New(r.db)
+
+	err := queries.UpdateUserPassword(ctx, dbmodels.UpdateUserPasswordParams{
+		UserUuid:     userID,
+		PasswordHash: passwordHash,
+		UpdatedAt:    common.NowUTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update password for user %s: %w", userID, err)
+	}
+
+	return nil
+}
+
+func (r *PostgresRepository) CreateResetToken(ctx context.Context, tokenHash string, userID domain.UserUUID, expiresAt time.Time) error {
+	queries := dbmodels.New(r.db)
+
+	err := queries.CreateResetToken(ctx, dbmodels.CreateResetTokenParams{
+		TokenHash: tokenHash,
+		UserUuid:  userID,
+		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		CreatedAt: pgtype.Timestamptz{Time: common.NowUTC(), Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create reset token: %w", err)
+	}
+
+	return nil
+}
+
+func (r *PostgresRepository) GetResetToken(ctx context.Context, tokenHash string) (domain.UserUUID, time.Time, error) {
+	queries := dbmodels.New(r.db)
+
+	token, err := queries.GetResetToken(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.UserUUID{}, time.Time{}, common.NewNotFoundError("reset_token_not_found", "reset token not found or invalid")
+		}
+		return domain.UserUUID{}, time.Time{}, fmt.Errorf("failed to get reset token: %w", err)
+	}
+
+	return token.UserUuid, token.ExpiresAt.Time, nil
+}
+
+func (r *PostgresRepository) DeleteResetToken(ctx context.Context, tokenHash string) error {
+	queries := dbmodels.New(r.db)
+
+	err := queries.DeleteResetToken(ctx, tokenHash)
+	if err != nil {
+		return fmt.Errorf("failed to delete reset token: %w", err)
 	}
 
 	return nil

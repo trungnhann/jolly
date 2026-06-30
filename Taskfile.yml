@@ -51,23 +51,23 @@ tasks:
 
   run:
     cmds:
-      - GOWORK=off go run ./backend/cmd
+      - go run ./backend/cmd
 
   test:
     cmds:
-      - GOWORK=off go test ./...
+      - go test ./...
 
   gen:
     cmds:
-      - GOWORK=off go generate ./...
+      - go generate ./...
 
   fmt:
     cmds:
-      - GOWORK=off gofmt -w ./backend
+      - gofmt -w ./backend
 
   tidy:
     cmds:
-      - GOWORK=off go mod tidy
+      - go mod tidy
 
   check:
     cmds:

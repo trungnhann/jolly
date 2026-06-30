@@ -116,6 +116,68 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /users/password/forgot:
+    post:
+      summary: Request a password reset email
+      operationId: forgotPassword
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPassword"
+      responses:
+        "200":
+          description: Password reset request processed successfully
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /users/password/reset:
+    post:
+      summary: Reset user password using token
+      operationId: resetPassword
+      tags:
+        - users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPassword"
+      responses:
+        "200":
+          description: Password reset successfully
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /users/password/change:
+    post:
+      summary: Change user password
+      operationId: changePassword
+      tags:
+        - users
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePassword"
+      responses:
+        "200":
+          description: Password changed successfully
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 components:
   schemas:
     LoginUser:
@@ -237,6 +299,36 @@ components:
         error_slug:
           type: string
         message:
+          type: string
+
+    ForgotPassword:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+
+    ResetPassword:
+      type: object
+      required:
+        - token
+        - new_password
+      properties:
+        token:
+          type: string
+        new_password:
+          type: string
+
+    ChangePassword:
+      type: object
+      required:
+        - current_password
+        - new_password
+      properties:
+        current_password:
+          type: string
+        new_password:
           type: string
 
   responses:

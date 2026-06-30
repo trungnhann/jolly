@@ -4,12 +4,14 @@ import (
 	"context"
 	"embed"
 
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"jolly/backend/common"
 	"jolly/backend/common/module"
 	"jolly/backend/common/module/contracts"
 	ordersdb "jolly/backend/orders/adapters/db"
+	ordersqueue "jolly/backend/orders/adapters/queue"
 	ordershttp "jolly/backend/orders/api/http"
 	ordersmodule "jolly/backend/orders/api/module"
 	"jolly/backend/orders/app/command"
@@ -20,14 +22,18 @@ type Module struct {
 	pgxDb *pgxpool.Pool
 
 	contracts       *contracts.Contracts
+	publisher       message.Publisher
+	subscriber      message.Subscriber
 	commandHandlers *command.Handlers
 	queryHandlers   *query.Handlers
 }
 
-func NewModule(pgxDb *pgxpool.Pool, contracts *contracts.Contracts) *Module {
+func NewModule(pgxDb *pgxpool.Pool, contracts *contracts.Contracts, publisher message.Publisher, subscriber message.Subscriber) *Module {
 	return &Module{
-		pgxDb:     pgxDb,
-		contracts: contracts,
+		pgxDb:      pgxDb,
+		contracts:  contracts,
+		publisher:  publisher,
+		subscriber: subscriber,
 	}
 }
 
@@ -50,7 +56,8 @@ func (m *Module) Init(ctx context.Context) error {
 	}
 
 	orderRepository := ordersdb.NewPostgresRepository(m.pgxDb)
-	m.commandHandlers = command.NewHandlers(m.contracts, orderRepository)
+	publisher := ordersqueue.NewPublisher(m.publisher)
+	m.commandHandlers = command.NewHandlers(m.contracts, orderRepository, publisher)
 	m.queryHandlers = query.NewHandlers(orderRepository)
 	return nil
 }
@@ -62,4 +69,24 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 
 func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
 	return ordershttp.Register(ctx, e, m.commandHandlers, m.queryHandlers)
+}
+
+func (m *Module) RegisterEventHandlers(ctx context.Context, router *message.Router) error {
+	consumer := ordersqueue.NewConsumer(m.commandHandlers)
+
+	router.AddConsumerHandler(
+		"orders.on_inventory_reserved",
+		"inventory.reserved",
+		m.subscriber,
+		consumer.HandleInventoryReserved,
+	)
+
+	router.AddConsumerHandler(
+		"orders.on_inventory_reservation_failed",
+		"inventory.reservation.failed",
+		m.subscriber,
+		consumer.HandleInventoryReservationFailed,
+	)
+
+	return nil
 }

@@ -8,11 +8,14 @@ services:
       POSTGRES_URL: postgres://jolly:jolly@postgres:5432/jolly?sslmode=disable
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: jolly-secret-key-development
+      RABBITMQ_URL: amqp://jolly:jolly@rabbitmq:5672/
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "8080:8080"
 
@@ -37,6 +40,23 @@ services:
     image: redis:7
     ports:
       - "6380:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: jolly
+      RABBITMQ_DEFAULT_PASS: jolly
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
 
   minio:
     image: minio/minio:latest
@@ -66,3 +86,4 @@ services:
 volumes:
   postgres-data:
   minio-data:
+  rabbitmq-data:

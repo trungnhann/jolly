@@ -1,6 +1,7 @@
 package payments
 
 import (
+"github.com/ThreeDotsLabs/watermill/message"
 	"context"
 
 	"jolly/backend/common"
@@ -34,5 +35,9 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 
 func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
 	_ = e
+	return nil
+}
+
+func (m *Module) RegisterEventHandlers(ctx context.Context, router *message.Router) error {
 	return nil
 }

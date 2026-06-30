@@ -38,3 +38,8 @@ sql:
             go_type:
               import: "jolly/backend/users/domain"
               type: "Role"
+
+          - column: "users.password_reset_tokens.user_uuid"
+            go_type:
+              import: "jolly/backend/users/domain"
+              type: "UserUUID"

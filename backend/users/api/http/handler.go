@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"jolly/backend/common"
 	"jolly/backend/common/file"
@@ -156,6 +160,88 @@ func (h Handler) UploadAvatar(ctx context.Context, request UploadAvatarRequestOb
 		CreatedAt: user.CreatedAt(),
 		UpdatedAt: user.UpdatedAt(),
 	}, nil
+}
+
+func (h Handler) ForgotPassword(ctx context.Context, request ForgotPasswordRequestObject) (ForgotPasswordResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("empty-body", "request body is required")
+	}
+
+	err := h.commands.RequestPasswordReset(ctx, command.RequestPasswordReset{
+		Email: request.Body.Email,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return ForgotPassword200Response{}, nil
+}
+
+func (h Handler) ResetPassword(ctx context.Context, request ResetPasswordRequestObject) (ResetPasswordResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("empty-body", "request body is required")
+	}
+
+	err := h.commands.ResetPassword(ctx, command.ResetPassword{
+		Token:       request.Body.Token,
+		NewPassword: request.Body.NewPassword,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return ResetPassword200Response{}, nil
+}
+
+func (h Handler) ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("empty-body", "request body is required")
+	}
+
+	authHeader := request.Params.Authorization
+	if len(authHeader) <= 7 || !strings.HasPrefix(authHeader, "Bearer ") {
+		return nil, common.NewUnauthorizedError("invalid-auth", "invalid authorization header format")
+	}
+	tokenString := authHeader[7:]
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		jwtSecret = "jolly-secret-key-development"
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(jwtSecret), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, common.NewUnauthorizedError("invalid-token", "invalid or expired token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, common.NewUnauthorizedError("invalid-claims", "invalid token claims")
+	}
+
+	userIDStr, ok := claims["sub"].(string)
+	if !ok {
+		return nil, common.NewUnauthorizedError("invalid-subject", "invalid token subject")
+	}
+
+	var rawUUID common.UUID
+	err = rawUUID.UnmarshalText([]byte(userIDStr))
+	if err != nil {
+		return nil, common.NewUnauthorizedError("invalid-user-uuid", "failed to parse user uuid from token")
+	}
+
+	err = h.commands.ChangePassword(ctx, command.ChangePassword{
+		UserID:          domain.UserUUID{UUID: rawUUID},
+		CurrentPassword: request.Body.CurrentPassword,
+		NewPassword:     request.Body.NewPassword,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return ChangePassword200Response{}, nil
 }
 
 func Register(ctx context.Context, e common.EchoRouter, commands *command.Handlers, queries *query.Handlers, storage file.Storage) error {

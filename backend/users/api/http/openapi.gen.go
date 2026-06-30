@@ -19,6 +19,12 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// ChangePassword defines model for ChangePassword.
+type ChangePassword struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
 // CreateUser defines model for CreateUser.
 type CreateUser struct {
 	Email    string    `json:"email"`
@@ -42,6 +48,11 @@ type ErrorResponse struct {
 	Slug    string         `json:"slug"`
 }
 
+// ForgotPassword defines model for ForgotPassword.
+type ForgotPassword struct {
+	Email string `json:"email"`
+}
+
 // LoginResponse defines model for LoginResponse.
 type LoginResponse struct {
 	Token string `json:"token"`
@@ -54,6 +65,12 @@ type LoginResponse struct {
 type LoginUser struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// ResetPassword defines model for ResetPassword.
+type ResetPassword struct {
+	NewPassword string `json:"new_password"`
+	Token       string `json:"token"`
 }
 
 // User defines model for User.
@@ -95,6 +112,11 @@ type NotFound = ErrorResponse
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
 
+// ChangePasswordParams defines parameters for ChangePassword.
+type ChangePasswordParams struct {
+	Authorization string `json:"Authorization"`
+}
+
 // UploadAvatarMultipartBody defines parameters for UploadAvatar.
 type UploadAvatarMultipartBody struct {
 	File *openapi_types.File `json:"file,omitempty"`
@@ -105,6 +127,15 @@ type CreateUserJSONRequestBody = CreateUser
 
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = LoginUser
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = ChangePassword
+
+// ForgotPasswordJSONRequestBody defines body for ForgotPassword for application/json ContentType.
+type ForgotPasswordJSONRequestBody = ForgotPassword
+
+// ResetPasswordJSONRequestBody defines body for ResetPassword for application/json ContentType.
+type ResetPasswordJSONRequestBody = ResetPassword
 
 // UploadAvatarMultipartRequestBody defines body for UploadAvatar for multipart/form-data ContentType.
 type UploadAvatarMultipartRequestBody UploadAvatarMultipartBody
@@ -117,6 +148,15 @@ type ServerInterface interface {
 	// Login user
 	// (POST /users/login)
 	LoginUser(ctx echo.Context) error
+	// Change user password
+	// (POST /users/password/change)
+	ChangePassword(ctx echo.Context, params ChangePasswordParams) error
+	// Request a password reset email
+	// (POST /users/password/forgot)
+	ForgotPassword(ctx echo.Context) error
+	// Reset user password using token
+	// (POST /users/password/reset)
+	ResetPassword(ctx echo.Context) error
 	// Get a user by UUID
 	// (GET /users/{user_uuid})
 	GetUser(ctx echo.Context, userUuid UserUUID) error
@@ -145,6 +185,55 @@ func (w *ServerInterfaceWrapper) LoginUser(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.LoginUser(ctx)
+	return err
+}
+
+// ChangePassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ChangePassword(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ChangePasswordParams
+
+	headers := ctx.Request().Header
+	// ------------- Required header parameter "Authorization" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Authorization")]; found {
+		var Authorization string
+		n := len(valueList)
+		if n != 1 {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Expected one value for Authorization, got %d", n))
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Authorization", valueList[0], &Authorization, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter Authorization: %s", err))
+		}
+
+		params.Authorization = Authorization
+	} else {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Header parameter Authorization is required, but not found"))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ChangePassword(ctx, params)
+	return err
+}
+
+// ForgotPassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ForgotPassword(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ForgotPassword(ctx)
+	return err
+}
+
+// ResetPassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ResetPassword(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ResetPassword(ctx)
 	return err
 }
 
@@ -210,6 +299,9 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.POST(baseURL+"/users", wrapper.CreateUser)
 	router.POST(baseURL+"/users/login", wrapper.LoginUser)
+	router.POST(baseURL+"/users/password/change", wrapper.ChangePassword)
+	router.POST(baseURL+"/users/password/forgot", wrapper.ForgotPassword)
+	router.POST(baseURL+"/users/password/reset", wrapper.ResetPassword)
 	router.GET(baseURL+"/users/:user_uuid", wrapper.GetUser)
 	router.POST(baseURL+"/users/:user_uuid/avatar", wrapper.UploadAvatar)
 
@@ -298,6 +390,91 @@ type LoginUser401JSONResponse struct{ UnauthorizedJSONResponse }
 func (response LoginUser401JSONResponse) VisitLoginUserResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChangePasswordRequestObject struct {
+	Params ChangePasswordParams
+	Body   *ChangePasswordJSONRequestBody
+}
+
+type ChangePasswordResponseObject interface {
+	VisitChangePasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangePassword200Response struct {
+}
+
+func (response ChangePassword200Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type ChangePassword400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ChangePassword400JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChangePassword401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ChangePassword401JSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ForgotPasswordRequestObject struct {
+	Body *ForgotPasswordJSONRequestBody
+}
+
+type ForgotPasswordResponseObject interface {
+	VisitForgotPasswordResponse(w http.ResponseWriter) error
+}
+
+type ForgotPassword200Response struct {
+}
+
+func (response ForgotPassword200Response) VisitForgotPasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type ForgotPassword400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ForgotPassword400JSONResponse) VisitForgotPasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ResetPasswordRequestObject struct {
+	Body *ResetPasswordJSONRequestBody
+}
+
+type ResetPasswordResponseObject interface {
+	VisitResetPasswordResponse(w http.ResponseWriter) error
+}
+
+type ResetPassword200Response struct {
+}
+
+func (response ResetPassword200Response) VisitResetPasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type ResetPassword400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ResetPassword400JSONResponse) VisitResetPasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -399,6 +576,15 @@ type StrictServerInterface interface {
 	// Login user
 	// (POST /users/login)
 	LoginUser(ctx context.Context, request LoginUserRequestObject) (LoginUserResponseObject, error)
+	// Change user password
+	// (POST /users/password/change)
+	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+	// Request a password reset email
+	// (POST /users/password/forgot)
+	ForgotPassword(ctx context.Context, request ForgotPasswordRequestObject) (ForgotPasswordResponseObject, error)
+	// Reset user password using token
+	// (POST /users/password/reset)
+	ResetPassword(ctx context.Context, request ResetPasswordRequestObject) (ResetPasswordResponseObject, error)
 	// Get a user by UUID
 	// (GET /users/{user_uuid})
 	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
@@ -471,6 +657,95 @@ func (sh *strictHandler) LoginUser(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(LoginUserResponseObject); ok {
 		return validResponse.VisitLoginUserResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ChangePassword operation middleware
+func (sh *strictHandler) ChangePassword(ctx echo.Context, params ChangePasswordParams) error {
+	var request ChangePasswordRequestObject
+
+	request.Params = params
+
+	var body ChangePasswordJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangePassword(ctx.Request().Context(), request.(ChangePasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangePassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
+		return validResponse.VisitChangePasswordResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ForgotPassword operation middleware
+func (sh *strictHandler) ForgotPassword(ctx echo.Context) error {
+	var request ForgotPasswordRequestObject
+
+	var body ForgotPasswordJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ForgotPassword(ctx.Request().Context(), request.(ForgotPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ForgotPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ForgotPasswordResponseObject); ok {
+		return validResponse.VisitForgotPasswordResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ResetPassword operation middleware
+func (sh *strictHandler) ResetPassword(ctx echo.Context) error {
+	var request ResetPasswordRequestObject
+
+	var body ResetPasswordJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ResetPassword(ctx.Request().Context(), request.(ResetPasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResetPassword")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ResetPasswordResponseObject); ok {
+		return validResponse.VisitResetPasswordResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

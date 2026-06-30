@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ThreeDotsLabs/watermill/message"
+
 	"jolly/backend/common"
 	"jolly/backend/common/module/contracts"
 )
@@ -15,17 +17,20 @@ type Module interface {
 	Init(ctx context.Context) error
 	RegisterContracts(ctx context.Context, contracts *contracts.Contracts) error
 	RegisterHttp(ctx context.Context, e common.EchoRouter) error
+	RegisterEventHandlers(ctx context.Context, router *message.Router) error
 }
 
 type Registry struct {
 	modules   []Module
 	contracts *contracts.Contracts
+	router    *message.Router
 }
 
-func NewRegistry(contracts *contracts.Contracts) *Registry {
+func NewRegistry(contracts *contracts.Contracts, router *message.Router) *Registry {
 	return &Registry{
 		modules:   []Module{},
 		contracts: contracts,
+		router:    router,
 	}
 }
 
@@ -55,6 +60,15 @@ func (r *Registry) RegisterHttpAll(ctx context.Context, e common.EchoRouter) err
 	for _, m := range r.modules {
 		if err := m.RegisterHttp(ctx, e); err != nil {
 			return fmt.Errorf("%s register http: %w", m.Name(), err)
+		}
+	}
+	return nil
+}
+
+func (r *Registry) RegisterEventHandlersAll(ctx context.Context) error {
+	for _, m := range r.modules {
+		if err := m.RegisterEventHandlers(ctx, r.router); err != nil {
+			return fmt.Errorf("%s register event handlers: %w", m.Name(), err)
 		}
 	}
 	return nil

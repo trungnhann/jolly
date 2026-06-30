@@ -1,6 +1,7 @@
 package users
 
 import (
+"github.com/ThreeDotsLabs/watermill/message"
 	"context"
 	"embed"
 
@@ -64,4 +65,8 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 
 func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
 	return usershttp.Register(ctx, e, m.commandHandlers, m.queryHandlers, m.storage)
+}
+
+func (m *Module) RegisterEventHandlers(ctx context.Context, router *message.Router) error {
+	return nil
 }

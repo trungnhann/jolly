@@ -7,21 +7,21 @@ import (
 	"time"
 
 	"jolly/backend/common"
+	"jolly/backend/common/event"
 	"jolly/backend/common/module/contracts"
 	"jolly/backend/common/shared"
-	inventoryclient "jolly/backend/inventory/api/module/client"
 	ordersclient "jolly/backend/orders/api/module/client"
 	"jolly/backend/orders/app"
 	"jolly/backend/orders/domain"
-	paymentsclient "jolly/backend/payments/api/module/client"
 )
 
 type Handlers struct {
 	modules         *contracts.Contracts
 	orderRepository domain.OrderRepository
+	publisher       event.Publisher
 }
 
-func NewHandlers(modules *contracts.Contracts, orderRepository domain.OrderRepository) *Handlers {
+func NewHandlers(modules *contracts.Contracts, orderRepository domain.OrderRepository, publisher event.Publisher) *Handlers {
 	if modules == nil {
 		panic("contracts cannot be nil")
 	}
@@ -32,6 +32,7 @@ func NewHandlers(modules *contracts.Contracts, orderRepository domain.OrderRepos
 	return &Handlers{
 		modules:         modules,
 		orderRepository: orderRepository,
+		publisher:       publisher,
 	}
 }
 
@@ -56,16 +57,11 @@ func (h *Handlers) PlaceOrder(ctx context.Context, cmd PlaceOrder) (domain.Order
 	orderUUID := app.OrderUUID{UUID: common.NewUUIDv7()}
 
 	items := make([]domain.LineItem, 0, len(cmd.Items))
-	reserveItems := make([]inventoryclient.ReserveStockItem, 0, len(cmd.Items))
 	for _, item := range cmd.Items {
 		items = append(items, domain.LineItem{
 			SKU:            item.SKU,
 			Quantity:       item.Quantity,
 			UnitPriceCents: item.UnitPriceCents,
-		})
-		reserveItems = append(reserveItems, inventoryclient.ReserveStockItem{
-			SKU:      item.SKU,
-			Quantity: item.Quantity,
 		})
 	}
 
@@ -79,40 +75,22 @@ func (h *Handlers) PlaceOrder(ctx context.Context, cmd PlaceOrder) (domain.Order
 		return domain.Order{}, saveErr
 	}
 
-	reserveErr := h.modules.Inventory.Reserve(ctx, inventoryclient.ReserveStockRequest{
-		OrderID: orderUUID.String(),
-		Items:   reserveItems,
-	})
-	if reserveErr != nil {
-		return domain.Order{}, h.markOrderFailed(ctx, &order, reserveErr)
+	eventPayload := domain.OrderCreatedEvent{
+		OrderID:    orderUUID.String(),
+		CustomerID: order.CustomerID,
+		Currency:   order.Currency,
+		Items:      make([]domain.OrderCreatedItem, 0, len(cmd.Items)),
+		CreatedAt:  common.NowUTC(),
+	}
+	for _, item := range cmd.Items {
+		eventPayload.Items = append(eventPayload.Items, domain.OrderCreatedItem{
+			SKU:      item.SKU,
+			Quantity: item.Quantity,
+		})
 	}
 
-	markReservedErr := order.MarkInventoryReserved()
-	if markReservedErr != nil {
-		return domain.Order{}, markReservedErr
-	}
-	updateReservedErr := h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt)
-	if updateReservedErr != nil {
-		return domain.Order{}, updateReservedErr
-	}
-
-	_, err = h.modules.Payments.Authorize(ctx, paymentsclient.AuthorizePaymentRequest{
-		OrderID:     orderUUID.String(),
-		CustomerID:  order.CustomerID,
-		AmountCents: order.TotalCents,
-		Currency:    order.Currency.String(),
-	})
-	if err != nil {
-		return domain.Order{}, h.markOrderFailed(ctx, &order, err)
-	}
-
-	markAuthorizedErr := order.MarkPaymentAuthorized()
-	if markAuthorizedErr != nil {
-		return domain.Order{}, markAuthorizedErr
-	}
-	updateAuthorizedErr := h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt)
-	if updateAuthorizedErr != nil {
-		return domain.Order{}, updateAuthorizedErr
+	if err := h.publisher.Publish(ctx, eventPayload.EventName(), eventPayload); err != nil {
+		return domain.Order{}, h.markOrderFailed(ctx, &order, fmt.Errorf("failed to publish order created event: %w", err))
 	}
 
 	return order, nil
@@ -126,4 +104,46 @@ func (h *Handlers) markOrderFailed(ctx context.Context, order *domain.Order, cau
 		return errors.Join(cause, err)
 	}
 	return cause
+}
+
+func (h *Handlers) MarkOrderFailed(ctx context.Context, orderID string) error {
+	var id common.UUID
+	if err := id.UnmarshalText([]byte(orderID)); err != nil {
+		return err
+	}
+	order, err := h.orderRepository.OrderByID(ctx, domain.OrderID{UUID: id})
+	if err != nil {
+		return err
+	}
+	return h.markOrderFailed(ctx, &order, errors.New("inventory reservation failed"))
+}
+
+func (h *Handlers) MarkOrderInventoryReserved(ctx context.Context, orderID string) error {
+	var id common.UUID
+	if err := id.UnmarshalText([]byte(orderID)); err != nil {
+		return err
+	}
+	order, err := h.orderRepository.OrderByID(ctx, domain.OrderID{UUID: id})
+	if err != nil {
+		return err
+	}
+	if err := order.MarkInventoryReserved(); err != nil {
+		return err
+	}
+	return h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt)
+}
+
+func (h *Handlers) MarkOrderPaymentAuthorized(ctx context.Context, orderID string) error {
+	var id common.UUID
+	if err := id.UnmarshalText([]byte(orderID)); err != nil {
+		return err
+	}
+	order, err := h.orderRepository.OrderByID(ctx, domain.OrderID{UUID: id})
+	if err != nil {
+		return err
+	}
+	if err := order.MarkPaymentAuthorized(); err != nil {
+		return err
+	}
+	return h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt)
 }

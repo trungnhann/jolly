@@ -1,0 +1,25 @@
+meta {
+  name: Get Product
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/products/{{product_uuid}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  product_uuid: 019efe26-b91e-7dc8-bcb7-7f3f2fa6892c
+}
+
+tests {
+  test("status code is 200", () => {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("returns correct product", () => {
+    expect(res.body.uuid).to.equal(bru.getVar("product_uuid"));
+  });
+}

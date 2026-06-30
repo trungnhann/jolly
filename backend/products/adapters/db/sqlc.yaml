@@ -1,0 +1,60 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "queries"
+    schema: "migrations"
+    gen:
+      go:
+        package: "dbmodels"
+        out: "dbmodels"
+        sql_package: "pgx/v5"
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - db_type: "uuid"
+            nullable: false
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "products.products.product_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "ProductUUID"
+
+          - column: "products.products.status"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "ProductStatus"
+
+          - column: "products.variants.product_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "ProductUUID"
+
+          - column: "products.variants.variant_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "VariantUUID"
+
+          - column: "products.variant_images.image_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "VariantImageUUID"
+
+          - column: "products.variant_images.variant_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "VariantUUID"

@@ -88,6 +88,15 @@ func (u *User) UpdateAvatar(url string) error {
 	return nil
 }
 
+func (u *User) UpdatePassword(passwordHash string) error {
+	if passwordHash == "" {
+		return ErrPasswordHashEmpty
+	}
+	u.passwordHash = passwordHash
+	u.updatedAt = common.NowUTC()
+	return nil
+}
+
 func NewUser(id UserUUID, email string, name string, passwordHash string, role Role) (User, error) {
 	if id.IsZero() {
 		return User{}, ErrUserIDEmpty

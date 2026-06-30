@@ -1,0 +1,21 @@
+meta {
+  name: List Products
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/products
+  body: none
+  auth: none
+}
+
+tests {
+  test("status code is 200", () => {
+    expect(res.status).to.equal(200);
+  });
+  
+  test("returns array", () => {
+    expect(res.body).to.be.an('array');
+  });
+}

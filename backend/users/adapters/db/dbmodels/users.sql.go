@@ -9,8 +9,37 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"jolly/backend/users/domain"
 )
+
+const createResetToken = `-- name: CreateResetToken :exec
+INSERT INTO users.password_reset_tokens (
+	token_hash,
+	user_uuid,
+	expires_at,
+	created_at
+)
+VALUES
+	($1, $2, $3, $4)
+`
+
+type CreateResetTokenParams struct {
+	TokenHash string
+	UserUuid  domain.UserUUID
+	ExpiresAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) CreateResetToken(ctx context.Context, arg CreateResetTokenParams) error {
+	_, err := q.db.Exec(ctx, createResetToken,
+		arg.TokenHash,
+		arg.UserUuid,
+		arg.ExpiresAt,
+		arg.CreatedAt,
+	)
+	return err
+}
 
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users.users (
@@ -50,6 +79,53 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.UpdatedAt,
 	)
 	return err
+}
+
+const deleteExpiredResetTokens = `-- name: DeleteExpiredResetTokens :exec
+DELETE FROM users.password_reset_tokens
+WHERE
+	expires_at < $1
+`
+
+func (q *Queries) DeleteExpiredResetTokens(ctx context.Context, expiresAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteExpiredResetTokens, expiresAt)
+	return err
+}
+
+const deleteResetToken = `-- name: DeleteResetToken :exec
+DELETE FROM users.password_reset_tokens
+WHERE
+	token_hash = $1
+`
+
+func (q *Queries) DeleteResetToken(ctx context.Context, tokenHash string) error {
+	_, err := q.db.Exec(ctx, deleteResetToken, tokenHash)
+	return err
+}
+
+const getResetToken = `-- name: GetResetToken :one
+SELECT
+	token_hash,
+	user_uuid,
+	expires_at,
+	created_at
+FROM
+	users.password_reset_tokens
+WHERE
+	token_hash = $1
+LIMIT 1
+`
+
+func (q *Queries) GetResetToken(ctx context.Context, tokenHash string) (UsersPasswordResetToken, error) {
+	row := q.db.QueryRow(ctx, getResetToken, tokenHash)
+	var i UsersPasswordResetToken
+	err := row.Scan(
+		&i.TokenHash,
+		&i.UserUuid,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getUser = `-- name: GetUser :one
@@ -121,5 +197,25 @@ type UpdateUserAvatarParams struct {
 
 func (q *Queries) UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) error {
 	_, err := q.db.Exec(ctx, updateUserAvatar, arg.UserUuid, arg.AvatarUrl, arg.UpdatedAt)
+	return err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :exec
+UPDATE users.users
+SET
+	password_hash = $2,
+	updated_at = $3
+WHERE
+	user_uuid = $1
+`
+
+type UpdateUserPasswordParams struct {
+	UserUuid     domain.UserUUID
+	PasswordHash string
+	UpdatedAt    time.Time
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.UserUuid, arg.PasswordHash, arg.UpdatedAt)
 	return err
 }

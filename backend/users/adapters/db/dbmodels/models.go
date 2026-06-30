@@ -7,8 +7,16 @@ package dbmodels
 import (
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"jolly/backend/users/domain"
 )
+
+type UsersPasswordResetToken struct {
+	TokenHash string
+	UserUuid  domain.UserUUID
+	ExpiresAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
 
 type UsersUser struct {
 	UserUuid     domain.UserUUID
