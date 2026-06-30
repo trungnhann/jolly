@@ -1,24 +1,30 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 func UnmarshalProduct(
 	id ProductUUID,
 	name string,
 	description string,
 	status ProductStatus,
+	categoryUUID *CategoryUUID,
+	brandUUID *BrandUUID,
 	variants []Variant,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) Product {
 	return Product{
-		id:          id,
-		name:        name,
-		description: description,
-		status:      status,
-		variants:    variants,
-		createdAt:   createdAt,
-		updatedAt:   updatedAt,
+		id:           id,
+		name:         name,
+		description:  description,
+		status:       status,
+		categoryUUID: categoryUUID,
+		brandUUID:    brandUUID,
+		variants:     variants,
+		createdAt:    createdAt,
+		updatedAt:    updatedAt,
 	}
 }
 

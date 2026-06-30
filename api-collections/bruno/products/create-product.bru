@@ -23,6 +23,8 @@ body:json {
     "name": "Jolly Racing T-Shirt",
     "description": "Official Jolly Racing Team T-Shirt, 100% cotton.",
     "status": "active",
+    "category_uuid": null,
+    "brand_uuid": null,
     "variants": [
       {
         "sku": "TSHIRT-RED-M",
@@ -40,8 +42,8 @@ body:json {
 
 script:post-response {
   if (res.status === 201 && res.body) {
-    if (res.body.uuid) {
-      bru.setVar("product_uuid", res.body.uuid);
+    if (res.body.product_uuid) {
+      bru.setVar("product_uuid", res.body.product_uuid);
     }
   }
 }
@@ -52,6 +54,6 @@ tests {
   });
   
   test("returns product uuid", () => {
-    expect(res.body).to.have.property("uuid");
+    expect(res.body).to.have.property("product_uuid");
   });
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"jolly/backend/common"
@@ -27,6 +28,24 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
+func toPgUUID(u *common.UUID) pgtype.UUID {
+	if u == nil || u.IsZero() {
+		return pgtype.UUID{Valid: false}
+	}
+	return pgtype.UUID{
+		Bytes: [16]byte(*u),
+		Valid: true,
+	}
+}
+
+func fromPgUUID(pgUUID pgtype.UUID) *common.UUID {
+	if !pgUUID.Valid {
+		return nil
+	}
+	u := common.UUID(pgUUID.Bytes)
+	return &u
+}
+
 func (r *PostgresRepository) SaveProduct(ctx context.Context, product domain.Product) error {
 	return common.UpdateInTx(ctx, r.db, func(ctx context.Context, tx pgx.Tx) error {
 		queries := dbmodels.New(tx)
@@ -36,12 +55,14 @@ func (r *PostgresRepository) SaveProduct(ctx context.Context, product domain.Pro
 			if errors.Is(err, pgx.ErrNoRows) {
 				// Insert new product
 				err = queries.CreateProduct(ctx, dbmodels.CreateProductParams{
-					ProductUuid: product.ID(),
-					Name:        product.Name(),
-					Description: product.Description(),
-					Status:      product.Status(),
-					CreatedAt:   product.CreatedAt(),
-					UpdatedAt:   product.UpdatedAt(),
+					ProductUuid:  product.ID(),
+					Name:         product.Name(),
+					Description:  product.Description(),
+					Status:       product.Status(),
+					CategoryUuid: product.CategoryUUID(),
+					BrandUuid:    product.BrandUUID(),
+					CreatedAt:    product.CreatedAt(),
+					UpdatedAt:    product.UpdatedAt(),
 				})
 				if err != nil {
 					return fmt.Errorf("failed to create product %s: %w", product.ID(), err)
@@ -52,11 +73,13 @@ func (r *PostgresRepository) SaveProduct(ctx context.Context, product domain.Pro
 		} else {
 			// Update existing product
 			err = queries.UpdateProduct(ctx, dbmodels.UpdateProductParams{
-				ProductUuid: product.ID(),
-				Name:        product.Name(),
-				Description: product.Description(),
-				Status:      product.Status(),
-				UpdatedAt:   product.UpdatedAt(),
+				ProductUuid:  product.ID(),
+				Name:         product.Name(),
+				Description:  product.Description(),
+				Status:       product.Status(),
+				CategoryUuid: product.CategoryUUID(),
+				BrandUuid:    product.BrandUUID(),
+				UpdatedAt:    product.UpdatedAt(),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to update product %s: %w", product.ID(), err)
@@ -157,6 +180,8 @@ func (r *PostgresRepository) ProductByID(ctx context.Context, id domain.ProductU
 		dbProduct.Name,
 		dbProduct.Description,
 		dbProduct.Status,
+		dbProduct.CategoryUuid,
+		dbProduct.BrandUuid,
 		variants,
 		dbProduct.CreatedAt,
 		dbProduct.UpdatedAt,
@@ -213,6 +238,8 @@ func (r *PostgresRepository) ListProducts(ctx context.Context) ([]domain.Product
 			p.Name,
 			p.Description,
 			p.Status,
+			p.CategoryUuid,
+			p.BrandUuid,
 			variants,
 			p.CreatedAt,
 			p.UpdatedAt,
@@ -270,4 +297,121 @@ func (r *PostgresRepository) DeleteProduct(ctx context.Context, id domain.Produc
 	}
 
 	return nil
+}
+
+// Categories
+
+func (r *PostgresRepository) SaveCategory(ctx context.Context, category domain.Category) error {
+	queries := dbmodels.New(r.db)
+	err := queries.CreateCategory(ctx, dbmodels.CreateCategoryParams{
+		CategoryUuid:       category.ID(),
+		ParentCategoryUuid: category.ParentCategoryUUID(),
+		Name:               category.Name(),
+		Slug:               category.Slug(),
+		CreatedAt:          category.CreatedAt(),
+		UpdatedAt:          category.UpdatedAt(),
+	})
+	if err != nil {
+		if common.IsUniqueViolationError(err, "categories_slug_unique") {
+			return common.NewConflictError("category_slug_already_exists", "category slug '%s' already exists", category.Slug())
+		}
+		return fmt.Errorf("failed to save category: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) CategoryByID(ctx context.Context, id domain.CategoryUUID) (domain.Category, error) {
+	queries := dbmodels.New(r.db)
+	row, err := queries.GetCategory(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Category{}, common.NewNotFoundError("category_not_found", "category not found")
+		}
+		return domain.Category{}, fmt.Errorf("failed to get category: %w", err)
+	}
+	return domain.UnmarshalCategory(
+		row.CategoryUuid,
+		row.ParentCategoryUuid,
+		row.Name,
+		row.Slug,
+		row.CreatedAt,
+		row.UpdatedAt,
+	), nil
+}
+
+func (r *PostgresRepository) ListCategories(ctx context.Context) ([]domain.Category, error) {
+	queries := dbmodels.New(r.db)
+	rows, err := queries.ListCategories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list categories: %w", err)
+	}
+	categories := make([]domain.Category, 0, len(rows))
+	for _, row := range rows {
+		categories = append(categories, domain.UnmarshalCategory(
+			row.CategoryUuid,
+			row.ParentCategoryUuid,
+			row.Name,
+			row.Slug,
+			row.CreatedAt,
+			row.UpdatedAt,
+		))
+	}
+	return categories, nil
+}
+
+// Brands
+
+func (r *PostgresRepository) SaveBrand(ctx context.Context, brand domain.Brand) error {
+	queries := dbmodels.New(r.db)
+	err := queries.CreateBrand(ctx, dbmodels.CreateBrandParams{
+		BrandUuid: brand.ID(),
+		Name:      brand.Name(),
+		Slug:      brand.Slug(),
+		CreatedAt: brand.CreatedAt(),
+		UpdatedAt: brand.UpdatedAt(),
+	})
+	if err != nil {
+		if common.IsUniqueViolationError(err, "brands_slug_unique") {
+			return common.NewConflictError("brand_slug_already_exists", "brand slug '%s' already exists", brand.Slug())
+		}
+		return fmt.Errorf("failed to save brand: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresRepository) BrandByID(ctx context.Context, id domain.BrandUUID) (domain.Brand, error) {
+	queries := dbmodels.New(r.db)
+	row, err := queries.GetBrand(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.Brand{}, common.NewNotFoundError("brand_not_found", "brand not found")
+		}
+		return domain.Brand{}, fmt.Errorf("failed to get brand: %w", err)
+	}
+	return domain.UnmarshalBrand(
+		row.BrandUuid,
+		row.Name,
+		row.Slug,
+		row.CreatedAt,
+		row.UpdatedAt,
+	), nil
+}
+
+func (r *PostgresRepository) ListBrands(ctx context.Context) ([]domain.Brand, error) {
+	queries := dbmodels.New(r.db)
+	rows, err := queries.ListBrands(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list brands: %w", err)
+	}
+	brands := make([]domain.Brand, 0, len(rows))
+	for _, row := range rows {
+		brands = append(brands, domain.UnmarshalBrand(
+			row.BrandUuid,
+			row.Name,
+			row.Slug,
+			row.CreatedAt,
+			row.UpdatedAt,
+		))
+	}
+	return brands, nil
 }

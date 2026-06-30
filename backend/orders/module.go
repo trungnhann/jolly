@@ -75,6 +75,20 @@ func (m *Module) RegisterEventHandlers(ctx context.Context, router *message.Rout
 	consumer := ordersqueue.NewConsumer(m.commandHandlers)
 
 	router.AddConsumerHandler(
+		"orders.on_payment_authorized",
+		"payment.authorized",
+		m.subscriber,
+		consumer.HandlePaymentAuthorized,
+	)
+
+	router.AddConsumerHandler(
+		"orders.on_payment_failed",
+		"payment.failed",
+		m.subscriber,
+		consumer.HandlePaymentFailed,
+	)
+
+	router.AddConsumerHandler(
 		"orders.on_inventory_reserved",
 		"inventory.reserved",
 		m.subscriber,

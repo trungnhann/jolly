@@ -10,7 +10,7 @@ import (
 func TestProduct_CreationAndMutations(t *testing.T) {
 	// Success case
 	id := domain.ProductUUID{UUID: common.NewUUIDv7()}
-	p, err := domain.NewProduct(id, "Test Product", "Description", domain.ProductStatusDraft())
+	p, err := domain.NewProduct(id, "Test Product", "Description", domain.ProductStatusDraft(), nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error creating product: %v", err)
 	}

@@ -12,10 +12,10 @@ import (
 type Status string
 
 const (
-	StatusPending           Status = "pending"
-	StatusInventoryReserved Status = "inventory_reserved"
-	StatusPaymentAuthorized Status = "payment_authorized"
-	StatusFailed            Status = "failed"
+	StatusPendingPayment Status = "pending_payment"
+	StatusPaid           Status = "paid"
+	StatusConfirmed      Status = "confirmed"
+	StatusFailed         Status = "failed"
 )
 
 func (s Status) String() string {
@@ -99,7 +99,7 @@ func NewOrder(id OrderID, customerID string, items []LineItem, currency shared.C
 		CustomerID:  customerID,
 		Items:       items,
 		Currency:    currency,
-		Status:      StatusPending,
+		Status:      StatusPendingPayment,
 		TotalCents:  total,
 		PlacedAtUTC: placedAt.UTC(),
 		CreatedAt:   now,
@@ -107,27 +107,35 @@ func NewOrder(id OrderID, customerID string, items []LineItem, currency shared.C
 	}, nil
 }
 
-func (o *Order) MarkInventoryReserved() error {
-	if o.Status != StatusPending {
+func (o *Order) MarkPaid() error {
+	if o.Status == StatusPaid {
+		return nil
+	}
+	if o.Status != StatusPendingPayment && o.Status != StatusConfirmed {
 		return ErrInvalidOrderStateTransition
 	}
-	o.Status = StatusInventoryReserved
+	o.Status = StatusPaid
 	o.UpdatedAt = common.NowUTC()
 	return nil
 }
 
-func (o *Order) MarkPaymentAuthorized() error {
-	if o.Status != StatusInventoryReserved {
+func (o *Order) MarkConfirmed() error {
+	if o.Status == StatusConfirmed {
+		return nil
+	}
+	if o.Status != StatusPaid && o.Status != StatusPendingPayment {
 		return ErrInvalidOrderStateTransition
 	}
-	o.Status = StatusPaymentAuthorized
+	o.Status = StatusConfirmed
 	o.UpdatedAt = common.NowUTC()
 	return nil
 }
 
 func (o *Order) MarkFailed() error {
 	switch o.Status {
-	case StatusPending, StatusInventoryReserved:
+	case StatusFailed:
+		return nil
+	case StatusPendingPayment, StatusPaid:
 		o.Status = StatusFailed
 		o.UpdatedAt = common.NowUTC()
 		return nil

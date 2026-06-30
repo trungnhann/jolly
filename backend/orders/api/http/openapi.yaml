@@ -178,9 +178,9 @@ components:
     OrderStatus:
       type: string
       enum:
-        - pending
-        - inventory_reserved
-        - payment_authorized
+        - pending_payment
+        - paid
+        - confirmed
         - failed
 
     Currency:

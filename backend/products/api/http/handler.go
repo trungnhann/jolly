@@ -8,6 +8,8 @@ import (
 	"mime/multipart"
 	"path/filepath"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"jolly/backend/common"
 	"jolly/backend/common/file"
 	"jolly/backend/products/app/command"
@@ -39,6 +41,14 @@ func NewHandler(commands *command.Handlers, queries *query.Handlers, storage fil
 	}
 }
 
+func mapUUIDPointer(u *openapi_types.UUID) *common.UUID {
+	if u == nil {
+		return nil
+	}
+	res := common.UUID(*u)
+	return &res
+}
+
 func (h Handler) CreateProduct(ctx context.Context, request CreateProductRequestObject) (CreateProductResponseObject, error) {
 	if request.Body == nil {
 		return nil, common.NewInvalidInputError("empty_body", "request body is required")
@@ -57,10 +67,12 @@ func (h Handler) CreateProduct(ctx context.Context, request CreateProductRequest
 	}
 
 	p, err := h.commands.CreateProduct(ctx, command.CreateProduct{
-		Name:        request.Body.Name,
-		Description: request.Body.Description,
-		Status:      request.Body.Status,
-		Variants:    variants,
+		Name:         request.Body.Name,
+		Description:  request.Body.Description,
+		Status:       request.Body.Status,
+		CategoryUUID: request.Body.CategoryUuid,
+		BrandUUID:    request.Body.BrandUuid,
+		Variants:     variants,
 	})
 	if err != nil {
 		return nil, err
@@ -98,10 +110,12 @@ func (h Handler) UpdateProduct(ctx context.Context, request UpdateProductRequest
 	}
 
 	p, err := h.commands.UpdateProduct(ctx, command.UpdateProduct{
-		ID:          request.ProductUuid,
-		Name:        request.Body.Name,
-		Description: request.Body.Description,
-		Status:      request.Body.Status,
+		ID:           request.ProductUuid,
+		Name:         request.Body.Name,
+		Description:  request.Body.Description,
+		Status:       request.Body.Status,
+		CategoryUUID: request.Body.CategoryUuid,
+		BrandUUID:    request.Body.BrandUuid,
 	})
 	if err != nil {
 		return nil, err
@@ -170,22 +184,18 @@ func (h Handler) DeleteVariant(ctx context.Context, request DeleteVariantRequest
 
 func (h Handler) UploadVariantImage(ctx context.Context, request UploadVariantImageRequestObject) (UploadVariantImageResponseObject, error) {
 	if request.Body == nil {
-		return nil, common.NewInvalidInputError("empty_body", "multipart body is required")
+		return nil, common.NewInvalidInputError("empty_body", "request body is required")
 	}
 
-	fileContent, filename, err := parseMultipartFile(request.Body)
+	content, fileName, err := parseMultipartFile(request.Body)
 	if err != nil {
-		return nil, common.NewInvalidInputError("invalid-multipart", "failed to parse multipart file: %v", err)
+		return nil, common.NewInvalidInputError("invalid_file", "%s", err.Error())
 	}
 
-	productUUID := request.ProductUuid
-	variantUUID := request.VariantUuid
+	ext := filepath.Ext(fileName)
+	imageName := fmt.Sprintf("%s%s", common.NewUUIDv7(), ext)
 
-	ext := filepath.Ext(filename)
-	imageUUID := domain.VariantImageUUID{UUID: common.NewUUIDv7()}
-	storagePath := fmt.Sprintf("products/%s/variants/%s/%s%s", productUUID.String(), variantUUID.String(), imageUUID.String(), ext)
-
-	url, err := h.storage.StoreFile(ctx, storagePath, fileContent)
+	url, err := h.storage.StoreFile(ctx, fmt.Sprintf("products/%s", imageName), content)
 	if err != nil {
 		return nil, err
 	}
@@ -196,8 +206,8 @@ func (h Handler) UploadVariantImage(ctx context.Context, request UploadVariantIm
 	}
 
 	p, err := h.commands.AddVariantImage(ctx, command.AddVariantImage{
-		ProductID: productUUID,
-		VariantID: variantUUID,
+		ProductID: request.ProductUuid,
+		VariantID: request.VariantUuid,
 		URL:       url,
 		Position:  position,
 	})
@@ -221,15 +231,75 @@ func (h Handler) DeleteVariantImage(ctx context.Context, request DeleteVariantIm
 	return DeleteVariantImage200JSONResponse(mapProductResponse(p)), nil
 }
 
-func Register(ctx context.Context, e common.EchoRouter, commands *command.Handlers, queries *query.Handlers, storage file.Storage) error {
-	_ = ctx
+// Categories
 
-	handler := Handler{
-		commands: commands,
-		queries:  queries,
-		storage:  storage,
+func (h Handler) CreateCategory(ctx context.Context, request CreateCategoryRequestObject) (CreateCategoryResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("empty_body", "request body is required")
 	}
 
+	c, err := h.commands.CreateCategory(ctx, command.CreateCategory{
+		ParentCategoryUUID: request.Body.ParentCategoryUuid,
+		Name:               request.Body.Name,
+		Slug:               request.Body.Slug,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateCategory201JSONResponse(mapCategoryResponse(c)), nil
+}
+
+func (h Handler) ListCategories(ctx context.Context, request ListCategoriesRequestObject) (ListCategoriesResponseObject, error) {
+	cats, err := h.queries.ListCategories(ctx, query.ListCategories{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]Category, 0, len(cats))
+	for _, c := range cats {
+		resp = append(resp, mapCategoryResponse(c))
+	}
+
+	return ListCategories200JSONResponse(resp), nil
+}
+
+// Brands
+
+func (h Handler) CreateBrand(ctx context.Context, request CreateBrandRequestObject) (CreateBrandResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("empty_body", "request body is required")
+	}
+
+	b, err := h.commands.CreateBrand(ctx, command.CreateBrand{
+		Name: request.Body.Name,
+		Slug: request.Body.Slug,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateBrand201JSONResponse(mapBrandResponse(b)), nil
+}
+
+func (h Handler) ListBrands(ctx context.Context, request ListBrandsRequestObject) (ListBrandsResponseObject, error) {
+	brands, err := h.queries.ListBrands(ctx, query.ListBrands{})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]Brand, 0, len(brands))
+	for _, b := range brands {
+		resp = append(resp, mapBrandResponse(b))
+	}
+
+	return ListBrands200JSONResponse(resp), nil
+}
+
+// Mappers
+
+func Register(ctx context.Context, e common.EchoRouter, commands *command.Handlers, queries *query.Handlers, storage file.Storage) error {
+	handler := NewHandler(commands, queries, storage)
 	RegisterHandlers(e, NewStrictHandler(handler, nil))
 	return nil
 }
@@ -261,13 +331,36 @@ func mapProductResponse(p domain.Product) Product {
 	}
 
 	return Product{
-		ProductUuid: p.ID(),
-		Name:        p.Name(),
-		Description: p.Description(),
-		Status:      p.Status(),
-		Variants:    variants,
-		CreatedAt:   p.CreatedAt(),
-		UpdatedAt:   p.UpdatedAt(),
+		ProductUuid:  p.ID(),
+		Name:         p.Name(),
+		Description:  p.Description(),
+		Status:       p.Status(),
+		CategoryUuid: p.CategoryUUID(),
+		BrandUuid:    p.BrandUUID(),
+		Variants:     variants,
+		CreatedAt:    p.CreatedAt(),
+		UpdatedAt:    p.UpdatedAt(),
+	}
+}
+
+func mapCategoryResponse(c domain.Category) Category {
+	return Category{
+		CategoryUuid:       c.ID(),
+		ParentCategoryUuid: c.ParentCategoryUUID(),
+		Name:               c.Name(),
+		Slug:               c.Slug(),
+		CreatedAt:          c.CreatedAt(),
+		UpdatedAt:          c.UpdatedAt(),
+	}
+}
+
+func mapBrandResponse(b domain.Brand) Brand {
+	return Brand{
+		BrandUuid: b.ID(),
+		Name:      b.Name(),
+		Slug:      b.Slug(),
+		CreatedAt: b.CreatedAt(),
+		UpdatedAt: b.UpdatedAt(),
 	}
 }
 

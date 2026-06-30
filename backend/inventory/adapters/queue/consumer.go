@@ -8,12 +8,11 @@ import (
 	"github.com/ThreeDotsLabs/watermill/message"
 
 	"jolly/backend/common/event"
-	"jolly/backend/inventory/api/module/client"
-	"jolly/backend/inventory/app"
+	"jolly/backend/inventory/app/command"
 	"jolly/backend/inventory/domain"
 )
 
-type IncomingOrderCreatedEvent struct {
+type IncomingOrderPaidEvent struct {
 	OrderID string `json:"order_id"`
 	Items   []struct {
 		SKU      string `json:"sku"`
@@ -22,32 +21,38 @@ type IncomingOrderCreatedEvent struct {
 }
 
 type Consumer struct {
-	service   *app.Service
-	publisher event.Publisher
+	commandHandlers *command.Handlers
+	publisher       event.Publisher
 }
 
-func NewConsumer(service *app.Service, publisher event.Publisher) *Consumer {
-	return &Consumer{service: service, publisher: publisher}
+func NewConsumer(commandHandlers *command.Handlers, publisher event.Publisher) *Consumer {
+	return &Consumer{commandHandlers: commandHandlers, publisher: publisher}
 }
 
-func (c *Consumer) HandleOrderCreated(msg *message.Message) error {
-	var ev IncomingOrderCreatedEvent
+func (c *Consumer) HandleOrderPaid(msg *message.Message) error {
+	var ev IncomingOrderPaidEvent
 	if err := json.Unmarshal(msg.Payload, &ev); err != nil {
 		return err
 	}
 
-	req := client.ReserveStockRequest{
+	cmd := command.Reserve{
 		OrderID: ev.OrderID,
-		Items:   make([]client.ReserveStockItem, 0, len(ev.Items)),
+		Items: make([]struct {
+			SKU      string
+			Quantity int
+		}, 0, len(ev.Items)),
 	}
 	for _, item := range ev.Items {
-		req.Items = append(req.Items, client.ReserveStockItem{
+		cmd.Items = append(cmd.Items, struct {
+			SKU      string
+			Quantity int
+		}{
 			SKU:      item.SKU,
 			Quantity: item.Quantity,
 		})
 	}
 
-	err := c.service.Reserve(context.Background(), req)
+	err := c.commandHandlers.Reserve(context.Background(), cmd)
 	if err != nil {
 		failEvent := domain.InventoryReservationFailedEvent{
 			OrderID:   ev.OrderID,

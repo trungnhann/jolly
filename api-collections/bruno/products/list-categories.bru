@@ -1,0 +1,21 @@
+meta {
+  name: List Categories
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/categories
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt_token}}
+}
+
+tests {
+  test("status code is 200", () => {
+    expect(res.status).to.equal(200);
+  });
+}

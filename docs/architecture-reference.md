@@ -80,8 +80,15 @@ Owns:
 - stock reservation behavior
 - inventory-related module contract used by `orders`
 
-At the moment, this module is also an in-process capability without its own DB
-schema.
+This module is persistent and has its own `inventory.stocks` DB schema.
+
+### products
+
+Owns:
+
+- product catalog cataloging, brand mapping, and hierarchical categories
+- variants list and pricing definitions
+- public module contracts
 
 ## Repository Shape
 
@@ -298,8 +305,7 @@ Why this matters:
 - compensation becomes possible later
 - observability improves immediately
 
-This stays synchronous for now. Compensation, outbox, and async processing can
-be added later when the flow becomes complex enough to justify them.
+Asynchronous decoupling is implemented using RabbitMQ and Watermill, allowing us to publish cross-module events (e.g., `orders.order_paid` event triggers stock level decrements) asynchronously.
 
 ## Module Communication
 
@@ -390,7 +396,6 @@ Current DB-backed modules:
 Current in-memory or non-persistent modules:
 
 - `payments`
-- `inventory`
 
 Migrations are embedded into the binary per module and executed during module
 initialization.
@@ -484,6 +489,23 @@ task mig:new MODULE=orders NAME=add_customer_fk
 The local Docker setup runs the app and its dependencies for development. The
 current development model favors simple local reproducibility over production
 parity for every infrastructure concern.
+
+## Asynchronous Messaging & Message Broker
+
+We use **Watermill** with **RabbitMQ** (AMQP) for cross-module asynchronous collaboration. This enables decoupled event-driven workflows where transactional safety or immediate consistency is not strictly required.
+
+### Broker & Connection
+- **Broker**: RabbitMQ running locally on port `5672` (or configured via `RABBITMQ_URL`).
+- **Library**: `ThreeDotsLabs/watermill-amqp/v3` is utilized to implement standard Publisher/Subscriber mechanics.
+- **Durable Queues**: All AMQP queues are created as durable, ensuring that messages are not lost during broker restarts.
+
+### Asynchronous Flow Pattern
+Modules implementing asynchronous events must declare a `queue/` adapter folder (e.g., `backend/inventory/adapters/queue/`) housing:
+- **Publishers**: Components that emit domain/integration events (e.g., publishing `orders.order_paid` when payment is confirmed).
+- **Consumers/Subscribers**: Consumers that handle incoming messages asynchronously (e.g., decrementing stocks in inventory upon receiving `orders.order_paid` event).
+
+### Transactional Decoupling
+Consistent with our database transaction guidelines, side effects (such as publishing to the message broker or sending email notifications) must be performed **after the database transaction block successfully commits**, avoiding duplicate publication in case of retry or rollback.
 
 ## Architectural Rules
 

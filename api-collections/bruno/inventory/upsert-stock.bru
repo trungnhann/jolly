@@ -1,0 +1,33 @@
+meta {
+  name: Upsert Stock
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/inventory/stock
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sku": "SKU-123",
+    "quantity": 100
+  }
+}
+
+tests {
+  test("status code is 200", () => {
+    expect(res.status).to.equal(200);
+  });
+
+  test("returns stock details", () => {
+    expect(res.body).to.have.property("stock_uuid");
+    expect(res.body.sku).to.equal("SKU-123");
+  });
+}

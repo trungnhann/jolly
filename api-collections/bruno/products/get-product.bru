@@ -20,6 +20,6 @@ tests {
   });
   
   test("returns correct product", () => {
-    expect(res.body.uuid).to.equal(bru.getVar("product_uuid"));
+    expect(res.body.product_uuid).to.equal(bru.getVar("product_uuid"));
   });
 }

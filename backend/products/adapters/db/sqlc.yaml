@@ -58,3 +58,31 @@ sql:
             go_type:
               import: "jolly/backend/products/domain"
               type: "VariantUUID"
+
+          - column: "products.categories.category_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "CategoryUUID"
+
+          - column: "products.categories.parent_category_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "CategoryUUID"
+              pointer: true
+
+          - column: "products.products.category_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "CategoryUUID"
+              pointer: true
+
+          - column: "products.brands.brand_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "BrandUUID"
+
+          - column: "products.products.brand_uuid"
+            go_type:
+              import: "jolly/backend/products/domain"
+              type: "BrandUUID"
+              pointer: true

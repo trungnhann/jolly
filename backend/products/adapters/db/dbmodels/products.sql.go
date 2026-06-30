@@ -12,26 +12,95 @@ import (
 	"jolly/backend/products/domain"
 )
 
+const createBrand = `-- name: CreateBrand :exec
+INSERT INTO products.brands (
+    brand_uuid,
+    name,
+    slug,
+    created_at,
+    updated_at
+)
+VALUES
+    ($1, $2, $3, $4, $5)
+`
+
+type CreateBrandParams struct {
+	BrandUuid domain.BrandUUID
+	Name      string
+	Slug      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) CreateBrand(ctx context.Context, arg CreateBrandParams) error {
+	_, err := q.db.Exec(ctx, createBrand,
+		arg.BrandUuid,
+		arg.Name,
+		arg.Slug,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const createCategory = `-- name: CreateCategory :exec
+INSERT INTO products.categories (
+    category_uuid,
+    parent_category_uuid,
+    name,
+    slug,
+    created_at,
+    updated_at
+)
+VALUES
+    ($1, $2, $3, $4, $5, $6)
+`
+
+type CreateCategoryParams struct {
+	CategoryUuid       domain.CategoryUUID
+	ParentCategoryUuid *domain.CategoryUUID
+	Name               string
+	Slug               string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) error {
+	_, err := q.db.Exec(ctx, createCategory,
+		arg.CategoryUuid,
+		arg.ParentCategoryUuid,
+		arg.Name,
+		arg.Slug,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const createProduct = `-- name: CreateProduct :exec
 INSERT INTO products.products (
 	product_uuid,
 	name,
 	description,
 	status,
+	category_uuid,
+	brand_uuid,
 	created_at,
 	updated_at
 )
 VALUES
-	($1, $2, $3, $4, $5, $6)
+	($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateProductParams struct {
-	ProductUuid domain.ProductUUID
-	Name        string
-	Description string
-	Status      domain.ProductStatus
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ProductUuid  domain.ProductUUID
+	Name         string
+	Description  string
+	Status       domain.ProductStatus
+	CategoryUuid *domain.CategoryUUID
+	BrandUuid    *domain.BrandUUID
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) error {
@@ -40,6 +109,8 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) er
 		arg.Name,
 		arg.Description,
 		arg.Status,
+		arg.CategoryUuid,
+		arg.BrandUuid,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -169,6 +240,41 @@ func (q *Queries) DeleteVariantsForProduct(ctx context.Context, productUuid doma
 	return err
 }
 
+const getBrand = `-- name: GetBrand :one
+SELECT brand_uuid, name, slug, created_at, updated_at FROM products.brands WHERE brand_uuid = $1 LIMIT 1
+`
+
+func (q *Queries) GetBrand(ctx context.Context, brandUuid domain.BrandUUID) (ProductsBrand, error) {
+	row := q.db.QueryRow(ctx, getBrand, brandUuid)
+	var i ProductsBrand
+	err := row.Scan(
+		&i.BrandUuid,
+		&i.Name,
+		&i.Slug,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getCategory = `-- name: GetCategory :one
+SELECT category_uuid, parent_category_uuid, name, slug, created_at, updated_at FROM products.categories WHERE category_uuid = $1 LIMIT 1
+`
+
+func (q *Queries) GetCategory(ctx context.Context, categoryUuid domain.CategoryUUID) (ProductsCategory, error) {
+	row := q.db.QueryRow(ctx, getCategory, categoryUuid)
+	var i ProductsCategory
+	err := row.Scan(
+		&i.CategoryUuid,
+		&i.ParentCategoryUuid,
+		&i.Name,
+		&i.Slug,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getImagesForVariant = `-- name: GetImagesForVariant :many
 SELECT
 	image_uuid, variant_uuid, url, position, created_at
@@ -208,7 +314,7 @@ func (q *Queries) GetImagesForVariant(ctx context.Context, variantUuid domain.Va
 
 const getProduct = `-- name: GetProduct :one
 SELECT
-	product_uuid, name, description, status, created_at, updated_at
+	product_uuid, name, description, status, created_at, updated_at, category_uuid, brand_uuid
 FROM
 	products.products
 WHERE
@@ -226,6 +332,8 @@ func (q *Queries) GetProduct(ctx context.Context, productUuid domain.ProductUUID
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CategoryUuid,
+		&i.BrandUuid,
 	)
 	return i, err
 }
@@ -294,9 +402,70 @@ func (q *Queries) GetVariantsForProduct(ctx context.Context, productUuid domain.
 	return items, nil
 }
 
+const listBrands = `-- name: ListBrands :many
+SELECT brand_uuid, name, slug, created_at, updated_at FROM products.brands ORDER BY name ASC
+`
+
+func (q *Queries) ListBrands(ctx context.Context) ([]ProductsBrand, error) {
+	rows, err := q.db.Query(ctx, listBrands)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProductsBrand{}
+	for rows.Next() {
+		var i ProductsBrand
+		if err := rows.Scan(
+			&i.BrandUuid,
+			&i.Name,
+			&i.Slug,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCategories = `-- name: ListCategories :many
+SELECT category_uuid, parent_category_uuid, name, slug, created_at, updated_at FROM products.categories ORDER BY name ASC
+`
+
+func (q *Queries) ListCategories(ctx context.Context) ([]ProductsCategory, error) {
+	rows, err := q.db.Query(ctx, listCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProductsCategory{}
+	for rows.Next() {
+		var i ProductsCategory
+		if err := rows.Scan(
+			&i.CategoryUuid,
+			&i.ParentCategoryUuid,
+			&i.Name,
+			&i.Slug,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProducts = `-- name: ListProducts :many
 SELECT
-	product_uuid, name, description, status, created_at, updated_at
+	product_uuid, name, description, status, created_at, updated_at, category_uuid, brand_uuid
 FROM
 	products.products
 ORDER BY
@@ -319,6 +488,8 @@ func (q *Queries) ListProducts(ctx context.Context) ([]ProductsProduct, error) {
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CategoryUuid,
+			&i.BrandUuid,
 		); err != nil {
 			return nil, err
 		}
@@ -336,17 +507,21 @@ SET
 	name = $2,
 	description = $3,
 	status = $4,
-	updated_at = $5
+	category_uuid = $5,
+	brand_uuid = $6,
+	updated_at = $7
 WHERE
 	product_uuid = $1
 `
 
 type UpdateProductParams struct {
-	ProductUuid domain.ProductUUID
-	Name        string
-	Description string
-	Status      domain.ProductStatus
-	UpdatedAt   time.Time
+	ProductUuid  domain.ProductUUID
+	Name         string
+	Description  string
+	Status       domain.ProductStatus
+	CategoryUuid *domain.CategoryUUID
+	BrandUuid    *domain.BrandUUID
+	UpdatedAt    time.Time
 }
 
 func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) error {
@@ -355,6 +530,8 @@ func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) er
 		arg.Name,
 		arg.Description,
 		arg.Status,
+		arg.CategoryUuid,
+		arg.BrandUuid,
 		arg.UpdatedAt,
 	)
 	return err

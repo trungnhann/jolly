@@ -60,6 +60,8 @@ func New(ctx context.Context, dbPgx *pgxpool.Pool, cfg Config) (*App, error) {
 		return nil, err
 	}
 	router.AddMiddleware(middleware.Recoverer)
+	router.AddMiddleware(middleware.CorrelationID)
+	router.AddMiddleware(messaging.LoggingMiddleware)
 
 	registry := module.NewRegistry(moduleContracts, router)
 
@@ -73,8 +75,8 @@ func New(ctx context.Context, dbPgx *pgxpool.Pool, cfg Config) (*App, error) {
 	}
 
 	registry.Add(
-		payments.NewModule(),
-		inventory.NewModule(publisher, subscriber),
+		payments.NewModule(publisher, subscriber),
+		inventory.NewModule(dbPgx, moduleContracts, publisher, subscriber),
 		products.NewModule(dbPgx, moduleContracts, fileStorage),
 		users.NewModule(dbPgx, fileStorage),
 		orders.NewModule(dbPgx, moduleContracts, publisher, subscriber),

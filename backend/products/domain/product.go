@@ -35,13 +35,15 @@ type ProductUUID struct {
 }
 
 type Product struct {
-	id          ProductUUID
-	name        string
-	description string
-	status      ProductStatus
-	variants    []Variant
-	createdAt   time.Time
-	updatedAt   time.Time
+	id           ProductUUID
+	name         string
+	description  string
+	status       ProductStatus
+	categoryUUID *CategoryUUID
+	brandUUID    *BrandUUID
+	variants     []Variant
+	createdAt    time.Time
+	updatedAt    time.Time
 }
 
 var (
@@ -76,6 +78,14 @@ func (p Product) Variants() []Variant {
 	return p.variants
 }
 
+func (p Product) CategoryUUID() *CategoryUUID {
+	return p.categoryUUID
+}
+
+func (p Product) BrandUUID() *BrandUUID {
+	return p.brandUUID
+}
+
 func (p Product) CreatedAt() time.Time {
 	return p.createdAt
 }
@@ -84,7 +94,7 @@ func (p Product) UpdatedAt() time.Time {
 	return p.updatedAt
 }
 
-func NewProduct(id ProductUUID, name string, description string, status ProductStatus) (Product, error) {
+func NewProduct(id ProductUUID, name string, description string, status ProductStatus, categoryUUID *CategoryUUID, brandUUID *BrandUUID) (Product, error) {
 	if id.IsZero() {
 		return Product{}, ErrProductIDEmpty
 	}
@@ -101,13 +111,15 @@ func NewProduct(id ProductUUID, name string, description string, status ProductS
 
 	now := common.NowUTC()
 	return Product{
-		id:          id,
-		name:        name,
-		description: description,
-		status:      status,
-		variants:    []Variant{},
-		createdAt:   now,
-		updatedAt:   now,
+		id:           id,
+		name:         name,
+		description:  description,
+		status:       status,
+		categoryUUID: categoryUUID,
+		brandUUID:    brandUUID,
+		variants:     []Variant{},
+		createdAt:    now,
+		updatedAt:    now,
 	}, nil
 }
 
@@ -120,6 +132,12 @@ func (p *Product) UpdateDetails(name string, description string) error {
 	p.description = description
 	p.updatedAt = common.NowUTC()
 	return nil
+}
+
+func (p *Product) UpdateCategoryAndBrand(categoryUUID *CategoryUUID, brandUUID *BrandUUID) {
+	p.categoryUUID = categoryUUID
+	p.brandUUID = brandUUID
+	p.updatedAt = common.NowUTC()
 }
 
 func (p *Product) ChangeStatus(status ProductStatus) error {

@@ -4,21 +4,37 @@ import (
 	"context"
 
 	"jolly/backend/inventory/api/module/client"
-	"jolly/backend/inventory/app"
+	"jolly/backend/inventory/app/command"
 )
 
 type Inventory struct {
-	service *app.Service
+	commands *command.Handlers
 }
 
-func New(service *app.Service) *Inventory {
-	if service == nil {
-		panic("inventory service cannot be nil")
+func New(commands *command.Handlers) *Inventory {
+	if commands == nil {
+		panic("inventory command handlers cannot be nil")
 	}
 
-	return &Inventory{service: service}
+	return &Inventory{commands: commands}
 }
 
 func (i *Inventory) Reserve(ctx context.Context, req client.ReserveStockRequest) error {
-	return i.service.Reserve(ctx, req)
+	cmd := command.Reserve{
+		OrderID: req.OrderID,
+		Items: make([]struct {
+			SKU      string
+			Quantity int
+		}, 0, len(req.Items)),
+	}
+	for _, item := range req.Items {
+		cmd.Items = append(cmd.Items, struct {
+			SKU      string
+			Quantity int
+		}{
+			SKU:      item.SKU,
+			Quantity: item.Quantity,
+		})
+	}
+	return i.commands.Reserve(ctx, cmd)
 }

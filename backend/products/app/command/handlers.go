@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"jolly/backend/common"
 	"jolly/backend/products/domain"
@@ -27,16 +28,18 @@ type CreateProductVariant struct {
 }
 
 type CreateProduct struct {
-	Name        string
-	Description string
-	Status      domain.ProductStatus
-	Variants    []CreateProductVariant
+	Name         string
+	Description  string
+	Status       domain.ProductStatus
+	CategoryUUID *domain.CategoryUUID
+	BrandUUID    *domain.BrandUUID
+	Variants     []CreateProductVariant
 }
 
 func (h *Handlers) CreateProduct(ctx context.Context, cmd CreateProduct) (domain.Product, error) {
 	productUUID := domain.ProductUUID{UUID: common.NewUUIDv7()}
 
-	product, err := domain.NewProduct(productUUID, cmd.Name, cmd.Description, cmd.Status)
+	product, err := domain.NewProduct(productUUID, cmd.Name, cmd.Description, cmd.Status, cmd.CategoryUUID, cmd.BrandUUID)
 	if err != nil {
 		return domain.Product{}, mapDomainError(err)
 	}
@@ -56,10 +59,12 @@ func (h *Handlers) CreateProduct(ctx context.Context, cmd CreateProduct) (domain
 }
 
 type UpdateProduct struct {
-	ID          domain.ProductUUID
-	Name        string
-	Description string
-	Status      domain.ProductStatus
+	ID           domain.ProductUUID
+	Name         string
+	Description  string
+	Status       domain.ProductStatus
+	CategoryUUID *domain.CategoryUUID
+	BrandUUID    *domain.BrandUUID
 }
 
 func (h *Handlers) UpdateProduct(ctx context.Context, cmd UpdateProduct) (domain.Product, error) {
@@ -71,6 +76,8 @@ func (h *Handlers) UpdateProduct(ctx context.Context, cmd UpdateProduct) (domain
 	if err := product.UpdateDetails(cmd.Name, cmd.Description); err != nil {
 		return domain.Product{}, mapDomainError(err)
 	}
+
+	product.UpdateCategoryAndBrand(cmd.CategoryUUID, cmd.BrandUUID)
 
 	if err := product.ChangeStatus(cmd.Status); err != nil {
 		return domain.Product{}, mapDomainError(err)
@@ -245,7 +252,66 @@ func mapDomainError(err error) error {
 		return common.NewInvalidInputError("image_id_empty", "image id cannot be empty")
 	case errors.Is(err, domain.ErrImageURLEmpty):
 		return common.NewInvalidInputError("image_url_empty", "image url cannot be empty")
+	case errors.Is(err, domain.ErrCategoryIDEmpty):
+		return common.NewInvalidInputError("category_id_empty", "category id cannot be empty")
+	case errors.Is(err, domain.ErrCategoryNameEmpty):
+		return common.NewInvalidInputError("category_name_empty", "category name cannot be empty")
+	case errors.Is(err, domain.ErrCategorySlugEmpty):
+		return common.NewInvalidInputError("category_slug_empty", "category slug cannot be empty")
+	case errors.Is(err, domain.ErrBrandIDEmpty):
+		return common.NewInvalidInputError("brand_id_empty", "brand id cannot be empty")
+	case errors.Is(err, domain.ErrBrandNameEmpty):
+		return common.NewInvalidInputError("brand_name_empty", "brand name cannot be empty")
+	case errors.Is(err, domain.ErrBrandSlugEmpty):
+		return common.NewInvalidInputError("brand_slug_empty", "brand slug cannot be empty")
 	default:
 		return err
 	}
+}
+
+type CreateCategory struct {
+	ParentCategoryUUID *domain.CategoryUUID
+	Name               string
+	Slug               string
+}
+
+func (h *Handlers) CreateCategory(ctx context.Context, cmd CreateCategory) (domain.Category, error) {
+	catUUID := domain.CategoryUUID{UUID: common.NewUUIDv7()}
+
+	if cmd.ParentCategoryUUID != nil {
+		_, err := h.repo.CategoryByID(ctx, *cmd.ParentCategoryUUID)
+		if err != nil {
+			return domain.Category{}, fmt.Errorf("parent category not found: %w", err)
+		}
+	}
+
+	category, err := domain.NewCategory(catUUID, cmd.ParentCategoryUUID, cmd.Name, cmd.Slug)
+	if err != nil {
+		return domain.Category{}, mapDomainError(err)
+	}
+
+	if err := h.repo.SaveCategory(ctx, category); err != nil {
+		return domain.Category{}, err
+	}
+
+	return category, nil
+}
+
+type CreateBrand struct {
+	Name string
+	Slug string
+}
+
+func (h *Handlers) CreateBrand(ctx context.Context, cmd CreateBrand) (domain.Brand, error) {
+	brandUUID := domain.BrandUUID{UUID: common.NewUUIDv7()}
+	brand, err := domain.NewBrand(brandUUID, cmd.Name, cmd.Slug)
+	if err != nil {
+		return domain.Brand{}, mapDomainError(err)
+	}
+
+	if err := h.repo.SaveBrand(ctx, brand); err != nil {
+		return domain.Brand{}, err
+	}
+
+	return brand, nil
 }

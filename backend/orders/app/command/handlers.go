@@ -79,6 +79,7 @@ func (h *Handlers) PlaceOrder(ctx context.Context, cmd PlaceOrder) (domain.Order
 		OrderID:    orderUUID.String(),
 		CustomerID: order.CustomerID,
 		Currency:   order.Currency,
+		TotalCents: order.TotalCents,
 		Items:      make([]domain.OrderCreatedItem, 0, len(cmd.Items)),
 		CreatedAt:  common.NowUTC(),
 	}
@@ -90,20 +91,24 @@ func (h *Handlers) PlaceOrder(ctx context.Context, cmd PlaceOrder) (domain.Order
 	}
 
 	if err := h.publisher.Publish(ctx, eventPayload.EventName(), eventPayload); err != nil {
-		return domain.Order{}, h.markOrderFailed(ctx, &order, fmt.Errorf("failed to publish order created event: %w", err))
+		publishErr := fmt.Errorf("failed to publish order created event: %w", err)
+		if markErr := h.markOrderFailed(ctx, &order); markErr != nil {
+			return domain.Order{}, errors.Join(publishErr, markErr)
+		}
+		return domain.Order{}, publishErr
 	}
 
 	return order, nil
 }
 
-func (h *Handlers) markOrderFailed(ctx context.Context, order *domain.Order, cause error) error {
+func (h *Handlers) markOrderFailed(ctx context.Context, order *domain.Order) error {
 	if err := order.MarkFailed(); err != nil {
-		return errors.Join(cause, err)
+		return err
 	}
 	if err := h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt); err != nil {
-		return errors.Join(cause, err)
+		return err
 	}
-	return cause
+	return nil
 }
 
 func (h *Handlers) MarkOrderFailed(ctx context.Context, orderID string) error {
@@ -115,10 +120,10 @@ func (h *Handlers) MarkOrderFailed(ctx context.Context, orderID string) error {
 	if err != nil {
 		return err
 	}
-	return h.markOrderFailed(ctx, &order, errors.New("inventory reservation failed"))
+	return h.markOrderFailed(ctx, &order)
 }
 
-func (h *Handlers) MarkOrderInventoryReserved(ctx context.Context, orderID string) error {
+func (h *Handlers) MarkOrderConfirmed(ctx context.Context, orderID string) error {
 	var id common.UUID
 	if err := id.UnmarshalText([]byte(orderID)); err != nil {
 		return err
@@ -127,13 +132,13 @@ func (h *Handlers) MarkOrderInventoryReserved(ctx context.Context, orderID strin
 	if err != nil {
 		return err
 	}
-	if err := order.MarkInventoryReserved(); err != nil {
+	if err := order.MarkConfirmed(); err != nil {
 		return err
 	}
 	return h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt)
 }
 
-func (h *Handlers) MarkOrderPaymentAuthorized(ctx context.Context, orderID string) error {
+func (h *Handlers) MarkOrderPaid(ctx context.Context, orderID string) error {
 	var id common.UUID
 	if err := id.UnmarshalText([]byte(orderID)); err != nil {
 		return err
@@ -142,8 +147,24 @@ func (h *Handlers) MarkOrderPaymentAuthorized(ctx context.Context, orderID strin
 	if err != nil {
 		return err
 	}
-	if err := order.MarkPaymentAuthorized(); err != nil {
+	if err := order.MarkPaid(); err != nil {
 		return err
 	}
-	return h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt)
+	if err := h.orderRepository.UpdateOrderStatus(ctx, order.ID, order.Status, order.UpdatedAt); err != nil {
+		return err
+	}
+
+	eventPayload := domain.OrderPaidEvent{
+		OrderID:   orderID,
+		Items:     make([]domain.OrderPaidItem, 0, len(order.Items)),
+		CreatedAt: common.NowUTC(),
+	}
+	for _, item := range order.Items {
+		eventPayload.Items = append(eventPayload.Items, domain.OrderPaidItem{
+			SKU:      item.SKU,
+			Quantity: item.Quantity,
+		})
+	}
+
+	return h.publisher.Publish(ctx, eventPayload.EventName(), eventPayload)
 }

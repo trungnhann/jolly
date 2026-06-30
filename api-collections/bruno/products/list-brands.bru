@@ -1,0 +1,21 @@
+meta {
+  name: List Brands
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/brands
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt_token}}
+}
+
+tests {
+  test("status code is 200", () => {
+    expect(res.status).to.equal(200);
+  });
+}

@@ -54,6 +54,8 @@ Migration helper tasks:
 - `task mig:new MODULE=orders NAME=add_customer_fk`
 - `task mig:new-orders NAME=add_customer_fk`
 - `task mig:new-users NAME=add_created_at`
+- `task mig:new-products NAME=add_categories`
+- `task mig:new-inventory NAME=init_inventory`
 
 ## Local Development
 

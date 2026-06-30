@@ -7,8 +7,10 @@ import (
 
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/message"
+	"github.com/ThreeDotsLabs/watermill/message/router/middleware"
 
 	"jolly/backend/common/event"
+	"jolly/backend/common/log"
 )
 
 type Publisher struct {
@@ -25,5 +27,10 @@ func (p *Publisher) Publish(ctx context.Context, topic string, e event.DomainEve
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 	msg := message.NewMessage(watermill.NewUUID(), payloadBytes)
+
+	if corrID := log.CorrelationIDFromContext(ctx); corrID != "" {
+		middleware.SetCorrelationID(corrID, msg)
+	}
+
 	return p.pub.Publish(topic, msg)
 }

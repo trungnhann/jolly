@@ -39,3 +39,31 @@ type GetVariantBySKU struct {
 func (h *Handlers) GetVariantBySKU(ctx context.Context, q GetVariantBySKU) (domain.Variant, error) {
 	return h.repo.VariantBySKU(ctx, q.SKU)
 }
+
+type GetCategory struct {
+	ID domain.CategoryUUID
+}
+
+func (h *Handlers) GetCategory(ctx context.Context, q GetCategory) (domain.Category, error) {
+	return h.repo.CategoryByID(ctx, q.ID)
+}
+
+type ListCategories struct{}
+
+func (h *Handlers) ListCategories(ctx context.Context, q ListCategories) ([]domain.Category, error) {
+	return h.repo.ListCategories(ctx)
+}
+
+type GetBrand struct {
+	ID domain.BrandUUID
+}
+
+func (h *Handlers) GetBrand(ctx context.Context, q GetBrand) (domain.Brand, error) {
+	return h.repo.BrandByID(ctx, q.ID)
+}
+
+type ListBrands struct{}
+
+func (h *Handlers) ListBrands(ctx context.Context, q ListBrands) ([]domain.Brand, error) {
+	return h.repo.ListBrands(ctx)
+}

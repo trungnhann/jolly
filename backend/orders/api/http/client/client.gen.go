@@ -23,10 +23,10 @@ import (
 
 // Defines values for OrderStatus.
 const (
-	Failed            OrderStatus = "failed"
-	InventoryReserved OrderStatus = "inventory_reserved"
-	PaymentAuthorized OrderStatus = "payment_authorized"
-	Pending           OrderStatus = "pending"
+	Confirmed      OrderStatus = "confirmed"
+	Failed         OrderStatus = "failed"
+	Paid           OrderStatus = "paid"
+	PendingPayment OrderStatus = "pending_payment"
 )
 
 // CreateOrder defines model for CreateOrder.

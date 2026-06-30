@@ -5,6 +5,92 @@ info:
   contact:
     name: jolly
 paths:
+  /categories:
+    post:
+      summary: Create a new category
+      operationId: createCategory
+      tags:
+        - categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategory"
+      responses:
+        "201":
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+    get:
+      summary: List all categories
+      operationId: listCategories
+      tags:
+        - categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /brands:
+    post:
+      summary: Create a new brand
+      operationId: createBrand
+      tags:
+        - brands
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBrand"
+      responses:
+        "201":
+          description: Brand created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brand"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+    get:
+      summary: List all brands
+      operationId: listBrands
+      tags:
+        - brands
+      responses:
+        "200":
+          description: List of brands
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Brand"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /products:
     post:
       summary: Create a new product
@@ -326,6 +412,10 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/ProductStatus"
+        category_uuid:
+          $ref: "#/components/schemas/CategoryUUID"
+        brand_uuid:
+          $ref: "#/components/schemas/BrandUUID"
         variants:
           type: array
           items:
@@ -344,6 +434,10 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/ProductStatus"
+        category_uuid:
+          $ref: "#/components/schemas/CategoryUUID"
+        brand_uuid:
+          $ref: "#/components/schemas/BrandUUID"
 
     CreateVariant:
       type: object
@@ -396,6 +490,10 @@ components:
           type: string
         status:
           $ref: "#/components/schemas/ProductStatus"
+        category_uuid:
+          $ref: "#/components/schemas/CategoryUUID"
+        brand_uuid:
+          $ref: "#/components/schemas/BrandUUID"
         variants:
           type: array
           items:
@@ -521,6 +619,92 @@ components:
         error_slug:
           type: string
         message:
+          type: string
+
+    CategoryUUID:
+      type: string
+      format: uuid
+      description: Unique category identifier
+      x-go-type: domain.CategoryUUID
+      x-go-type-import:
+        path: jolly/backend/products/domain
+
+    Category:
+      type: object
+      required:
+        - category_uuid
+        - name
+        - slug
+        - created_at
+        - updated_at
+      properties:
+        category_uuid:
+          $ref: "#/components/schemas/CategoryUUID"
+        parent_category_uuid:
+          $ref: "#/components/schemas/CategoryUUID"
+        name:
+          type: string
+        slug:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateCategory:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        parent_category_uuid:
+          $ref: "#/components/schemas/CategoryUUID"
+        name:
+          type: string
+        slug:
+          type: string
+
+    BrandUUID:
+      type: string
+      format: uuid
+      description: Unique brand identifier
+      x-go-type: domain.BrandUUID
+      x-go-type-import:
+        path: jolly/backend/products/domain
+
+    Brand:
+      type: object
+      required:
+        - brand_uuid
+        - name
+        - slug
+        - created_at
+        - updated_at
+      properties:
+        brand_uuid:
+          $ref: "#/components/schemas/BrandUUID"
+        name:
+          type: string
+        slug:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateBrand:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        name:
+          type: string
+        slug:
           type: string
 
   responses:

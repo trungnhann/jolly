@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Inventory Service API
+  version: 1.0.0
+paths:
+  /inventory/stock:
+    post:
+      summary: Create or update inventory stock for a variant SKU
+      operationId: UpsertStock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertStockRequest'
+      responses:
+        '200':
+          description: Stock successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    UpsertStockRequest:
+      type: object
+      required:
+        - sku
+        - quantity
+      properties:
+        sku:
+          type: string
+        quantity:
+          type: integer
+          minimum: 0
+
+    StockResponse:
+      type: object
+      required:
+        - stock_uuid
+        - sku
+        - quantity
+      properties:
+        stock_uuid:
+          type: string
+          format: uuid
+          x-go-type: common.UUID
+          x-go-type-import:
+            path: jolly/backend/common
+        sku:
+          type: string
+        quantity:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+        - slug
+      properties:
+        message:
+          type: string
+        slug:
+          type: string

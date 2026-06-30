@@ -1,9 +1,9 @@
 package users
 
 import (
-"github.com/ThreeDotsLabs/watermill/message"
 	"context"
 	"embed"
+	"github.com/ThreeDotsLabs/watermill/message"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 

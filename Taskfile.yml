@@ -28,6 +28,20 @@ tasks:
     cmds:
       - task mig:new MODULE=users NAME={{.NAME}}
 
+  "mig:new-products":
+    desc: "Create migration for products module"
+    requires:
+      vars: [NAME]
+    cmds:
+      - task mig:new MODULE=products NAME={{.NAME}}
+
+  "mig:new-inventory":
+    desc: "Create migration for inventory module"
+    requires:
+      vars: [NAME]
+    cmds:
+      - task mig:new MODULE=inventory NAME={{.NAME}}
+
   up:
     cmds:
       - docker compose up --build -d

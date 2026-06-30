@@ -8,6 +8,7 @@ Base scaffold for a Go e-commerce backend following a modular DDD-inspired struc
 - `payments`
 - `inventory`
 - `users`
+- `products` (Product catalog with Categories, Brands, and Variants support)
 
 ## Run
 
@@ -74,7 +75,7 @@ curl -X POST http://localhost:8080/orders \
 
 ## Next Steps
 
-- add persistence + migrations for `payments` and `inventory`
+- add persistence + migrations for `payments`
 - add HTTP contracts for modules without public APIs yet
 - add external events / async workflows (outbox + broker)
-- add more modules such as `catalog`, `customers`, and `carts`
+- add more modules such as `customers` and `carts`

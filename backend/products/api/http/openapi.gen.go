@@ -19,12 +19,61 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Brand defines model for Brand.
+type Brand struct {
+	// BrandUuid Unique brand identifier
+	BrandUuid BrandUUID `json:"brand_uuid"`
+	CreatedAt time.Time `json:"created_at"`
+	Name      string    `json:"name"`
+	Slug      string    `json:"slug"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// BrandUUID Unique brand identifier
+type BrandUUID = domain.BrandUUID
+
+// Category defines model for Category.
+type Category struct {
+	// CategoryUuid Unique category identifier
+	CategoryUuid CategoryUUID `json:"category_uuid"`
+	CreatedAt    time.Time    `json:"created_at"`
+	Name         string       `json:"name"`
+
+	// ParentCategoryUuid Unique category identifier
+	ParentCategoryUuid *CategoryUUID `json:"parent_category_uuid,omitempty"`
+	Slug               string        `json:"slug"`
+	UpdatedAt          time.Time     `json:"updated_at"`
+}
+
+// CategoryUUID Unique category identifier
+type CategoryUUID = domain.CategoryUUID
+
+// CreateBrand defines model for CreateBrand.
+type CreateBrand struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+// CreateCategory defines model for CreateCategory.
+type CreateCategory struct {
+	Name string `json:"name"`
+
+	// ParentCategoryUuid Unique category identifier
+	ParentCategoryUuid *CategoryUUID `json:"parent_category_uuid,omitempty"`
+	Slug               string        `json:"slug"`
+}
+
 // CreateProduct defines model for CreateProduct.
 type CreateProduct struct {
-	Description string           `json:"description"`
-	Name        string           `json:"name"`
-	Status      ProductStatus    `json:"status"`
-	Variants    *[]CreateVariant `json:"variants,omitempty"`
+	// BrandUuid Unique brand identifier
+	BrandUuid *BrandUUID `json:"brand_uuid,omitempty"`
+
+	// CategoryUuid Unique category identifier
+	CategoryUuid *CategoryUUID    `json:"category_uuid,omitempty"`
+	Description  string           `json:"description"`
+	Name         string           `json:"name"`
+	Status       ProductStatus    `json:"status"`
+	Variants     *[]CreateVariant `json:"variants,omitempty"`
 }
 
 // CreateVariant defines model for CreateVariant.
@@ -51,9 +100,14 @@ type ErrorResponse struct {
 
 // Product defines model for Product.
 type Product struct {
-	CreatedAt   time.Time `json:"created_at"`
-	Description string    `json:"description"`
-	Name        string    `json:"name"`
+	// BrandUuid Unique brand identifier
+	BrandUuid *BrandUUID `json:"brand_uuid,omitempty"`
+
+	// CategoryUuid Unique category identifier
+	CategoryUuid *CategoryUUID `json:"category_uuid,omitempty"`
+	CreatedAt    time.Time     `json:"created_at"`
+	Description  string        `json:"description"`
+	Name         string        `json:"name"`
 
 	// ProductUuid Unique product identifier
 	ProductUuid ProductUUID   `json:"product_uuid"`
@@ -70,9 +124,14 @@ type ProductUUID = domain.ProductUUID
 
 // UpdateProduct defines model for UpdateProduct.
 type UpdateProduct struct {
-	Description string        `json:"description"`
-	Name        string        `json:"name"`
-	Status      ProductStatus `json:"status"`
+	// BrandUuid Unique brand identifier
+	BrandUuid *BrandUUID `json:"brand_uuid,omitempty"`
+
+	// CategoryUuid Unique category identifier
+	CategoryUuid *CategoryUUID `json:"category_uuid,omitempty"`
+	Description  string        `json:"description"`
+	Name         string        `json:"name"`
+	Status       ProductStatus `json:"status"`
 }
 
 // UpdateVariant defines model for UpdateVariant.
@@ -139,6 +198,12 @@ type UploadVariantImageParams struct {
 	Position *int `form:"position,omitempty" json:"position,omitempty"`
 }
 
+// CreateBrandJSONRequestBody defines body for CreateBrand for application/json ContentType.
+type CreateBrandJSONRequestBody = CreateBrand
+
+// CreateCategoryJSONRequestBody defines body for CreateCategory for application/json ContentType.
+type CreateCategoryJSONRequestBody = CreateCategory
+
 // CreateProductJSONRequestBody defines body for CreateProduct for application/json ContentType.
 type CreateProductJSONRequestBody = CreateProduct
 
@@ -156,6 +221,18 @@ type UploadVariantImageMultipartRequestBody UploadVariantImageMultipartBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List all brands
+	// (GET /brands)
+	ListBrands(ctx echo.Context) error
+	// Create a new brand
+	// (POST /brands)
+	CreateBrand(ctx echo.Context) error
+	// List all categories
+	// (GET /categories)
+	ListCategories(ctx echo.Context) error
+	// Create a new category
+	// (POST /categories)
+	CreateCategory(ctx echo.Context) error
 	// List all products
 	// (GET /products)
 	ListProducts(ctx echo.Context) error
@@ -191,6 +268,42 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// ListBrands converts echo context to params.
+func (w *ServerInterfaceWrapper) ListBrands(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListBrands(ctx)
+	return err
+}
+
+// CreateBrand converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateBrand(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateBrand(ctx)
+	return err
+}
+
+// ListCategories converts echo context to params.
+func (w *ServerInterfaceWrapper) ListCategories(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListCategories(ctx)
+	return err
+}
+
+// CreateCategory converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateCategory(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateCategory(ctx)
+	return err
 }
 
 // ListProducts converts echo context to params.
@@ -416,6 +529,10 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/brands", wrapper.ListBrands)
+	router.POST(baseURL+"/brands", wrapper.CreateBrand)
+	router.GET(baseURL+"/categories", wrapper.ListCategories)
+	router.POST(baseURL+"/categories", wrapper.CreateCategory)
 	router.GET(baseURL+"/products", wrapper.ListProducts)
 	router.POST(baseURL+"/products", wrapper.CreateProduct)
 	router.DELETE(baseURL+"/products/:product_uuid", wrapper.DeleteProduct)
@@ -436,6 +553,144 @@ type ConflictJSONResponse ErrorResponse
 type NotFoundJSONResponse ErrorResponse
 
 type UnauthorizedJSONResponse ErrorResponse
+
+type ListBrandsRequestObject struct {
+}
+
+type ListBrandsResponseObject interface {
+	VisitListBrandsResponse(w http.ResponseWriter) error
+}
+
+type ListBrands200JSONResponse []Brand
+
+func (response ListBrands200JSONResponse) VisitListBrandsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListBrands401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListBrands401JSONResponse) VisitListBrandsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateBrandRequestObject struct {
+	Body *CreateBrandJSONRequestBody
+}
+
+type CreateBrandResponseObject interface {
+	VisitCreateBrandResponse(w http.ResponseWriter) error
+}
+
+type CreateBrand201JSONResponse Brand
+
+func (response CreateBrand201JSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateBrand400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateBrand400JSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateBrand401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateBrand401JSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateBrand409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateBrand409JSONResponse) VisitCreateBrandResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListCategoriesRequestObject struct {
+}
+
+type ListCategoriesResponseObject interface {
+	VisitListCategoriesResponse(w http.ResponseWriter) error
+}
+
+type ListCategories200JSONResponse []Category
+
+func (response ListCategories200JSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListCategories401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListCategories401JSONResponse) VisitListCategoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateCategoryRequestObject struct {
+	Body *CreateCategoryJSONRequestBody
+}
+
+type CreateCategoryResponseObject interface {
+	VisitCreateCategoryResponse(w http.ResponseWriter) error
+}
+
+type CreateCategory201JSONResponse Category
+
+func (response CreateCategory201JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateCategory400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateCategory400JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateCategory401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateCategory401JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateCategory409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateCategory409JSONResponse) VisitCreateCategoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
 
 type ListProductsRequestObject struct {
 }
@@ -887,6 +1142,18 @@ func (response DeleteVariantImage404JSONResponse) VisitDeleteVariantImageRespons
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List all brands
+	// (GET /brands)
+	ListBrands(ctx context.Context, request ListBrandsRequestObject) (ListBrandsResponseObject, error)
+	// Create a new brand
+	// (POST /brands)
+	CreateBrand(ctx context.Context, request CreateBrandRequestObject) (CreateBrandResponseObject, error)
+	// List all categories
+	// (GET /categories)
+	ListCategories(ctx context.Context, request ListCategoriesRequestObject) (ListCategoriesResponseObject, error)
+	// Create a new category
+	// (POST /categories)
+	CreateCategory(ctx context.Context, request CreateCategoryRequestObject) (CreateCategoryResponseObject, error)
 	// List all products
 	// (GET /products)
 	ListProducts(ctx context.Context, request ListProductsRequestObject) (ListProductsResponseObject, error)
@@ -929,6 +1196,110 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListBrands operation middleware
+func (sh *strictHandler) ListBrands(ctx echo.Context) error {
+	var request ListBrandsRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBrands(ctx.Request().Context(), request.(ListBrandsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBrands")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListBrandsResponseObject); ok {
+		return validResponse.VisitListBrandsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateBrand operation middleware
+func (sh *strictHandler) CreateBrand(ctx echo.Context) error {
+	var request CreateBrandRequestObject
+
+	var body CreateBrandJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBrand(ctx.Request().Context(), request.(CreateBrandRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBrand")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateBrandResponseObject); ok {
+		return validResponse.VisitCreateBrandResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListCategories operation middleware
+func (sh *strictHandler) ListCategories(ctx echo.Context) error {
+	var request ListCategoriesRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCategories(ctx.Request().Context(), request.(ListCategoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCategories")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListCategoriesResponseObject); ok {
+		return validResponse.VisitListCategoriesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateCategory operation middleware
+func (sh *strictHandler) CreateCategory(ctx echo.Context) error {
+	var request CreateCategoryRequestObject
+
+	var body CreateCategoryJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCategory(ctx.Request().Context(), request.(CreateCategoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCategory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateCategoryResponseObject); ok {
+		return validResponse.VisitCreateCategoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // ListProducts operation middleware

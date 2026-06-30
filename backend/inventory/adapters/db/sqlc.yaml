@@ -1,0 +1,55 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "queries"
+    schema: "migrations"
+    gen:
+      go:
+        package: "dbmodels"
+        out: "dbmodels"
+        sql_package: "pgx/v5"
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - db_type: "uuid"
+            nullable: false
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "inventory.stocks.stock_uuid"
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "inventory.reservations.reservation_uuid"
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "inventory.reservations.order_uuid"
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "inventory.reservation_items.reservation_uuid"
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"
+
+          - column: "inventory.reservation_items.stock_uuid"
+            go_type:
+              import: "jolly/backend/common"
+              type: "UUID"

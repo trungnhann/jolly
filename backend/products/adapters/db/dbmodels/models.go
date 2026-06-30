@@ -10,13 +10,32 @@ import (
 	"jolly/backend/products/domain"
 )
 
+type ProductsBrand struct {
+	BrandUuid domain.BrandUUID
+	Name      string
+	Slug      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type ProductsCategory struct {
+	CategoryUuid       domain.CategoryUUID
+	ParentCategoryUuid *domain.CategoryUUID
+	Name               string
+	Slug               string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
 type ProductsProduct struct {
-	ProductUuid domain.ProductUUID
-	Name        string
-	Description string
-	Status      domain.ProductStatus
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ProductUuid  domain.ProductUUID
+	Name         string
+	Description  string
+	Status       domain.ProductStatus
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	CategoryUuid *domain.CategoryUUID
+	BrandUuid    *domain.BrandUUID
 }
 
 type ProductsVariant struct {

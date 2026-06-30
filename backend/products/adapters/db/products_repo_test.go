@@ -52,7 +52,7 @@ func TestPostgresRepository_Integration(t *testing.T) {
 	t.Run("Create and Save Product with Variants", func(t *testing.T) {
 
 		pID := domain.ProductUUID{UUID: common.NewUUIDv7()}
-		p, err := domain.NewProduct(pID, "Integration Test Product "+pID.String(), "Integration Description", domain.ProductStatusDraft())
+		p, err := domain.NewProduct(pID, "Integration Test Product "+pID.String(), "Integration Description", domain.ProductStatusDraft(), nil, nil)
 		if err != nil {
 			t.Fatalf("failed to construct product: %v", err)
 		}
@@ -149,6 +149,47 @@ func TestPostgresRepository_Integration(t *testing.T) {
 		_, err = repo.ProductByID(ctx, pID)
 		if err == nil {
 			t.Error("expected product not found error, got nil")
+		}
+	})
+
+	t.Run("Create, Save, and Retrieve Category and Brand", func(t *testing.T) {
+		catUUID := domain.CategoryUUID{UUID: common.NewUUIDv7()}
+		cat, err := domain.NewCategory(catUUID, nil, "Shoes", "shoes-"+catUUID.String())
+		if err != nil {
+			t.Fatalf("failed to construct category: %v", err)
+		}
+
+		if err := repo.SaveCategory(ctx, cat); err != nil {
+			t.Fatalf("failed to save category: %v", err)
+		}
+
+		// Retrieve Category
+		retCat, err := repo.CategoryByID(ctx, catUUID)
+		if err != nil {
+			t.Fatalf("failed to load category: %v", err)
+		}
+		if retCat.Name() != "Shoes" || retCat.Slug() != "shoes-"+catUUID.String() {
+			t.Errorf("category properties incorrect")
+		}
+
+		// Brand
+		brandUUID := domain.BrandUUID{UUID: common.NewUUIDv7()}
+		brand, err := domain.NewBrand(brandUUID, "Nike", "nike-"+brandUUID.String())
+		if err != nil {
+			t.Fatalf("failed to construct brand: %v", err)
+		}
+
+		if err := repo.SaveBrand(ctx, brand); err != nil {
+			t.Fatalf("failed to save brand: %v", err)
+		}
+
+		// Retrieve Brand
+		retBrand, err := repo.BrandByID(ctx, brandUUID)
+		if err != nil {
+			t.Fatalf("failed to load brand: %v", err)
+		}
+		if retBrand.Name() != "Nike" || retBrand.Slug() != "nike-"+brandUUID.String() {
+			t.Errorf("brand properties incorrect")
 		}
 	})
 }

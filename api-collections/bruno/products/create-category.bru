@@ -1,0 +1,37 @@
+meta {
+  name: Create Category
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/categories
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{jwt_token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Apparel",
+    "slug": "apparel"
+  }
+}
+
+tests {
+  test("status code is 201", () => {
+    expect(res.status).to.equal(201);
+  });
+  
+  test("returns category properties", () => {
+    expect(res.body).to.have.property("category_uuid");
+    expect(res.body.name).to.equal("Apparel");
+  });
+}
